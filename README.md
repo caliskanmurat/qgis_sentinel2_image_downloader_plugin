@@ -11,7 +11,14 @@
   <tr>
     <td><img width="1750" src="./images/image2.PNG"></td>
     <td>
-      <b>Download Images</b><br/>
+      <b>Download Images</b> section is second part the analysis. In this section, the images in the attribute list of GKPG file are downloaded.<br/><br/>
+      <b>Log In Parameters:</b><br/><br/>
+      <b>Go to Site for Registration:</b><br/><br/>
+      <b>Input Footprint File:</b><br/><br/>
+      <b>Extract Files:</b><br/><br/>
+      <b>Delete Zip File:</b><br/><br/>
+      <b>NDVI ve NDWI:</b><br/><br/>
+      <b>Clip by Extent as VRT:</b><br/><br/>
     </td>
   </tr>
 </table>
