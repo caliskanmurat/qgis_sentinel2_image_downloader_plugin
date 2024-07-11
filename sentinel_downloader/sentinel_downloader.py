@@ -724,9 +724,7 @@ class DownloadSentinel:
 
                     data = products_all.drop(columns="wkt").values.tolist()
                     geoms = products_all.wkt.map(ogr.CreateGeometryFromWkt).tolist()
-                    
-                    products_all.to_csv(fr"{outFolderPath}/{out_name}.csv", index=False)
-                    
+                                      
                     self.createGPKG(data, geoms, fr"{outFolderPath}/{out_name}.gpkg", driver_name = "GPKG")                    
                     self.createLog(fr"Exported to {outFolderPath}/{out_name}.gpkg")
                     
