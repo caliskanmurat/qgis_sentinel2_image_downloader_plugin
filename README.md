@@ -5,7 +5,7 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
 <br/>
 <table>
   <tr>
-    <td><img width="2000" src="./images/image1.PNG"></td>
+    <td><img width="2500" src="./images/image1.PNG"></td>
     <td>
       <i>Download Footprints</i> section is first part of the analysis. In this section a <i><b>Geopackage (GPKG)</b></i> file is created. This file contains informations about the images to be downloaded such as "prod_id, prod_identifier, prod_download_url, cloudcover, processingdate, area_km". Images that are not desired to be downloaded should be deleted from the attribute table of the GPKG file.<br/><br/>
       <b>Query Area:</b> The extent of area of interest is selected here. It can be specified by "<i>Canvas Extent</i>", "<i>Layer Extent</i>" or "<i>Drawing Manually From the Map</i>".<br/><br/>
@@ -14,14 +14,14 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
     </td>
 
   <tr>
-    <td><img width="2000" src="./images/image2.PNG"></td>
+    <td><img width="2500" src="./images/image2.PNG"></td>
     <td>
       <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG file are downloaded.(<i>Copernicus Data Space account is required.</i>)<br/><br/>
       <b>Go to Site for Registration:</b> This is a link to Copernicus Data Space platform for registration.<br/><br/>
       <b>Input Footprint File:</b> Geopackage file that was created in first section is specified here.<br/><br/>
       <b>Extract Files:</b> Sentinel images are downloaded in .zip format. So it has to be extracted before use. This option allows user to extract files after being downloaded automatically.<br/><br/>
       <b>Delete Zip File:</b> This option should be selected if .zip file is desired to be deleted after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
-      <b>NDVI ve NDWI:</b><br/><br/>
+      <b>NDVI ve NDWI:</b> This option should be selected if "<i>NDVI</i> and <i>NDWI</i>" indices are desired to be created after process.<br/><br/>
       <b>Clip by Extent as VRT:</b><br/><br/>
     </td>
   </tr>
