@@ -21,7 +21,7 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
       <b>Input Footprint File:</b> Geopackage file that was created in first section is specified here.<br/><br/>
       <b>Extract Files:</b> Sentinel images are downloaded in .zip format. So it has to be extracted before use. This option allows user to extract files after being downloaded automatically.<br/><br/>
       <b>Delete Zip File:</b> This option should be selected if .zip file is desired to be deleted after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
-      <b>NDVI ve NDWI:</b> This option should be selected if "<i>NDVI</i> and <i>NDWI</i>" indices are desired to be created after process.<br/><br/>
+      <b>NDVI and NDWI:</b> This option should be selected if "<i>NDVI</i> and <i>NDWI</i>" indices are desired to be created after process.<br/><br/>
       <b>Clip by Extent as VRT:</b><br/><br/>
     </td>
   </tr>
