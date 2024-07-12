@@ -21,7 +21,7 @@ With this plugin, it is possible to download Sentinel-2 images(_B01, B02, B03, B
       <b>Input Footprint File:</b> Geopackage file that was created in first section is specified here.<br/><br/>
       <b>Extract Files:</b> Sentinel images are downloaded in .zip format. So it has to be extracted before use. This option allows user to extract files after being downloaded automatically.<br/><br/>
       <b>Delete Zip File:</b> This option should be selected if .zip file is desired to be deleted after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
-      <b>NDVI and NDWI:</b> This option should be selected if "<i>NDVI</i>" and "<i>NDWI</i>" indices are desired to be created after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
+      <b>NDVI and NDWI:</b> This option should be selected if "<i>NDVI</i>" and "<i>NDWI</i>" indices are desired to be created after process. This option is available if "<i>Extract files</i>" option is selected. (NDVI and NDWI images are multiplied by 100 and images are saved in integer type to decrease the size.)<br/><br/>
       <b>Clip by Extent as VRT:</b> If this option is selected, downloaded images are also clipped using specified extent beside original one. However, clipped image is saved in <i>Virtual Format(.VRT)</i> format not real one. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
       <b>Download only quicklook file:</b> A quicklook file is small sized RGB image in .jpg format. It is not georeferenced and can be used for previewing and determining the images to be downloaded. This option can be selected to download only quicklook images before the Sentinel image bands.
     </td>
