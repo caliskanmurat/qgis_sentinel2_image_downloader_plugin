@@ -23,7 +23,7 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
       <b>Delete Zip File:</b> This option should be selected if .zip file is desired to be deleted after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
       <b>NDVI and NDWI:</b> This option should be selected if "<i>NDVI</i>" and "<i>NDWI</i>" indices are desired to be created after process. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
       <b>Clip by Extent as VRT:</b> If this option is selected, downloaded images are also clipped using specified extent beside original one. However, clipped image is saved in <i>Virtual Format(.VRT)</i> format not real one. This option is available if "<i>Extract files</i>" option is selected.<br/><br/>
-      <b>Download only quicklook file:</b> Quicklook file is small sized, unprojected RGB image in .jpg format. It can be used for previewing and determining the images to be downloaded.
+      <b>Download only quicklook file:</b> Quicklook file is small sized RGB image in .jpg format. It is not georeferenced and can be used for previewing and determining the images to be downloaded.
     </td>
   </tr>
 </table>
