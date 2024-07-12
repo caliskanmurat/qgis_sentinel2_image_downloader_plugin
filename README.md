@@ -1,8 +1,8 @@
 # QGIS Sentinel-2 Image Downloader Plugin
 
 With this plugin, it is possible to download Sentinel-2 imags from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/).
-
-
+<br/>
+<br/>
 <table>
   <tr>
     <td><img width="2000" src="./images/image1.PNG"></td>
