@@ -5,7 +5,7 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
 <br/>
 <table>
   <tr>
-    <td><img width="2500" src="./images/image1.PNG"></td>
+    <td><img width="10000" src="./images/image1.PNG"></td>
     <td>
       <i>Download Footprints</i> section is first part of the analysis. In this section a <i><b>Geopackage (GPKG)</b></i> file is created. This file contains informations about the images to be downloaded such as "prod_id, prod_identifier, prod_download_url, cloudcover, processingdate, area_km". Images that are not desired to be downloaded should be deleted from the attribute table of the GPKG file.<br/><br/>
       <b>Query Area:</b> The extent of area of interest is selected here. It can be specified by "<i>Canvas Extent</i>", "<i>Layer Extent</i>" or "<i>Drawing Manually From the Map</i>".<br/><br/>
@@ -14,7 +14,7 @@ With this plugin, it is possible to download Sentinel-2 imags from the **_Copern
     </td>
 
   <tr>
-    <td><img width="2500" src="./images/image2.PNG"></td>
+    <td><img width="10000" src="./images/image2.PNG"></td>
     <td>
       <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG file are downloaded.(<i>Copernicus Data Space account is required.</i>)<br/><br/>
       <b>Go to Site for Registration:</b> This is a link to Copernicus Data Space platform for registration.<br/><br/>
