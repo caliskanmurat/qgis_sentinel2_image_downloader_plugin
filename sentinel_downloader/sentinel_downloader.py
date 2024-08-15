@@ -273,9 +273,7 @@ class DownloadSentinel:
         
         for e, (_,row) in enumerate(products_all.iterrows()):
             feat = ogr.Feature(defn)
-            
-            feat.SetField('id', e)
-            
+         
             for k,v in row.items():
                 if k == "wkt":
                     feat.SetGeometry(ogr.CreateGeometryFromWkt(v))
