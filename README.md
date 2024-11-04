@@ -3,7 +3,9 @@
 With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, TCI, SCL_) from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/).
 <br/>
 <br/>
+
 ### Download Footprints
+
 <img width="800" src="./images/image1.PNG">
 <i>Download Footprints</i> section is first part of the analysis. In this section a <i><b>Geopackage (GPKG)</b></i> file is created. This file contains informations about the images to be downloaded such as "<i>prod_id, prod_identifier, prod_download_url, cloudcover, processingdate, area_km</i>". Images that are not desired to be downloaded should be deleted from the attribute table of the GPKG file.
 
@@ -22,52 +24,37 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <b>Output Folder:</b> Folder where the footprint files will be created in is specified here.
 
-<br/>
-<br/>
+<br/><br/>
 
 ### Download Images
+
 <img width="800" src="./images/image2.PNG">
 <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG file are downloaded.(<i>Copernicus Data Space account is required.</i>)
 
-<br/><br/>
+<br/>
 
 <b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
 
-<br/><br/>
+<br/>
 
 <b>Input Footprint File(s):</b> Geopackage(GPKG) file(s) created in first section is specified here. Multiple files can be selected. 
 
-<br/><br/>
+<br/>
 
 <b>Output Folder:</b> Folder for files to be download is specified here.
 
-<br/><br/>
+<br/>
 
 <b>OPTIONS:</b> Some extra options about download process can be configure in his section. Detailed explanation is below.
 
+<br/>
 
-
-
-
-<b>Extract Files:</b> Sentinel images are downloaded in .zip format. So it has to be extracted before use. This option allows user to extract files after being downloaded automatically.
+<b>Download List:</b> The summary about process can be found here.
 
 <br/><br/>
 
-<b>Delete Zip File:</b> This option should be selected if .zip file is desired to be deleted after process. This option is available if "<i>Extract files</i>" option is selected.
-
-<br/><br/>
-
-<b>NDVI and NDWI:</b> This option should be selected if "<i>NDVI</i>" and "<i>NDWI</i>" indices are desired to be created after process. This option is available if "<i>Extract files</i>" option is selected. (NDVI and NDWI images are multiplied by 100 and images are saved in integer type to decrease the size.)
-
-<br/><br/>
-
-<b>Clip by Extent as VRT:</b> If this option is selected, downloaded images are also clipped using specified extent beside original one. However, clipped image is saved in <i>Virtual Format(.VRT)</i> format not real one. This option is available if "<i>Extract files</i>" option is selected.
-
-<br/><br/>
-
-<b>Download only quicklook file:</b> A quicklook file is small sized RGB image in .jpg format. It is not georeferenced and can be used for previewing and determining the images to be downloaded. This option can be selected to download only quicklook images before the Sentinel image bands.
-
-<br/><br/>
+### Download Images
 
 <img width="800" src="./images/image3.PNG">
 
+<b>Download List:</b> The summary about process can be found here.
