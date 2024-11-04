@@ -53,8 +53,20 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/><br/>
 
-### Download Images
+### Download Options
 
 <img width="800" src="./images/image3.PNG">
 
-<b>Download List:</b> The summary about process can be found here.
+<b>Bands:</b> Bands to be download can be selected here.
+
+<br/>
+
+<b>Indices:</b> Remote sensing indices that is desired to be created after download can be selected here.
+
+<br/>
+
+<b>Clip and Merge:</b> Downloaded images can be merged as VRT file based on _date, zone number or product type_. Also images can be clipped using query extent.
+
+<br/>
+
+<b>Other:</b> Beside downloading individual bands, _raw zip file_ and _quicklook file of the image_ also can be download by selecting this option.
