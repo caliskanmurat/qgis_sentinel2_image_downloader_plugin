@@ -1,8 +1,8 @@
 # QGIS Sentinel-2 Image Downloader Plugin
 
 With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, TCI, SCL_) from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/). The process consists of two steps : "_Download Footprints_" and "_Download Images_".
-<br/>
-<br/>
+
+<br/><br/>
 
 ### 1-) Download Footprints
 
@@ -31,7 +31,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <img width="800" src="./images/image2.PNG">
 <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG files are downloaded.(<i>Copernicus Data Space account is required.</i>)
 
-<br/>
+<br/><br/>
 
 <b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
 
