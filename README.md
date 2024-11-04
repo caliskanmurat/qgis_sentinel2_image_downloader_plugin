@@ -65,7 +65,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Clip and Merge:</b> Downloaded images can be merged as VRT file based on _date, zone number and product type_ (e.g. merged_vrt\20241102\z35\MSIL2A). Also images can be clipped using query extent.
+<b>Clip and Merge:</b> Downloaded images can be merged as VRT file based on _date, zone number and product type_ (e.g. _merged_vrt\20241102\z35\MSIL2A_). Also images can be clipped using query extent.
 
 <br/>
 
