@@ -14,16 +14,18 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 - <ins> _Drawing Manually From the Map_</ins> : Extent of query area is drawed manually,
 - <ins> _Layer Extent_</ins> : Extent of layer is used for query. If **_Use features of layer for query_** option is selected, features of the selected layer is used for query. _Polygon, Point, Polyline_ data are available.
 
-<br/><br/>
+<br/>
 
 <b>Parameters:</b> Parameters for the images to be downloaded are specified here. The parameters are <i>maximum cloud coverage(%)</i>, <i>pruduct type (L2A, L1C, Both)</i> and <i>date range</i>.
 
-<br/><br/>
+<br/>
 
 <b>Output Folder:</b> Folder where the footprint files will be created in is specified here.
 
-<br/><br/>
+<br/>
+<br/>
 
+### Download Images
 <img width="800" src="./images/image2.PNG">
 <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG file are downloaded.(<i>Copernicus Data Space account is required.</i>)<br/><br/>
 <b>Go to Site for Registration:</b> This is a link to Copernicus Data Space platform for registration.<br/><br/>
