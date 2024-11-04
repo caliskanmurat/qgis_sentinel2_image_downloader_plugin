@@ -10,7 +10,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <b>Parameters:</b> Parameters for the images to be downloaded are specified here. The parameters are <i>maximum cloud coverage(%)</i>, <i>pruduct type (L2A, L1C, Both)</i> and <i>date range</i>.<br/><br/>
 <b>Output Folder:</b> Folder where the footprint files will be created in is specified here.<br/><br/>
 
-<img width="80" src="./images/image2.PNG">
+<img width="800" src="./images/image2.PNG">
 <i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG file are downloaded.(<i>Copernicus Data Space account is required.</i>)<br/><br/>
 <b>Go to Site for Registration:</b> This is a link to Copernicus Data Space platform for registration.<br/><br/>
 <b>Input Footprint File:</b> Geopackage file that was created in first section is specified here.<br/><br/>
