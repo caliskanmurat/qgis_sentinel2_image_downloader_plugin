@@ -69,4 +69,4 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Other:</b> Beside downloading individual bands, _raw zip file_ and _quicklook file of the image_ also can be download by selecting this option.
+<b>Other:</b> Beside downloading individual bands, _"raw zip file"_ and _"quicklook file of the image"_ also can be download by selecting this option.
