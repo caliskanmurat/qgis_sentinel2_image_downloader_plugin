@@ -3,10 +3,11 @@ from PyQt5 import QtGui
 from qgis.core import QgsWkbTypes, QgsRectangle, QgsPointXY
 
 from shapely.wkt import loads
-from osgeo import osr, ogr
+from osgeo import ogr
+from pyproj import CRS, Transformer
+from shapely.ops import transform
 
 from qgis.core import QgsProject
-from qgis.PyQt.QtWidgets import QMessageBox
 
 class RectangleMapTool(QgsMapToolEmitPoint):
     def __init__(self, canvas, dlg):
@@ -29,22 +30,22 @@ class RectangleMapTool(QgsMapToolEmitPoint):
         self.endPoint = self.startPoint
         self.isEmittingPoint = True
         self.showRect(self.startPoint, self.endPoint)
+
+    def getTransformedGeometry(self, geom_wkt, srs_wkt, env=False):
+        geom = loads(geom_wkt)
         
-    def getTransformedGeometry(self, geom_wkt, srs_wkt):
-        geom = ogr.CreateGeometryFromWkt(geom_wkt)
+        from_crs = CRS.from_wkt(srs_wkt)
+        to_crs = CRS.from_epsg(4326)
         
-        sr_1 = osr.SpatialReference()
-        sr_1.ImportFromWkt(srs_wkt)
+        transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
+        projected = transform(transformer.transform, geom)
         
-        sr_2 = osr.SpatialReference()
-        sr_2.ImportFromEPSG(4326)
-                
-        if not sr_1.IsSame(sr_2):
-            sr_2.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-            coord_trans = osr.CoordinateTransformation(sr_1, sr_2)
-            geom.Transform(coord_trans)
+        proj_geom = ogr.CreateGeometryFromWkt(projected.wkt)       
         
-        return geom
+        if env:
+            return proj_geom.GetEnvelope()
+        else:
+            return proj_geom    
     
     def canvasReleaseEvent(self, e):
         self.isEmittingPoint = False
@@ -58,9 +59,10 @@ class RectangleMapTool(QgsMapToolEmitPoint):
             
             """ ------------------ """
             srs_wkt = QgsProject.instance().crs().toWkt()
-            geom = self.getTransformedGeometry(r.asWktPolygon(), srs_wkt)
-            minx, maxx, miny, maxy = geom.GetEnvelope()
-                           
+            minx, maxx, miny, maxy = self.getTransformedGeometry(r.asWktPolygon(), srs_wkt, env=True)
+            
+            self.dlg.cb_feat_bounds.setChecked(False)
+        
             self.dlg.sb_extent_minx.setValue(minx)
             self.dlg.sb_extent_miny.setValue(miny)
             self.dlg.sb_extent_maxx.setValue(maxx)

@@ -6,11 +6,11 @@
 name=Sentinel 2 Image Downloader
 qgisMinimumVersion=3.0
 description=This plugin allows users to download Sentinel-2 images.	
-version=1.1
+version=2.0
 author=Murat Çalışkan
 email=caliskan.murat.20@gmail.com
 
-about=This plugin allows users to download Sentinel-2 images from Copernicus Data Space platform (https://dataspace.copernicus.eu). The plugin also has ability to "extract zip file", "create NDVI index" and "create NDWI index". Another option is to download only "quicklook" image, which is a RGB image without projection, instead of whole Sentinel-2 data. Analysis consists of two process. "Download Footprints" and "Download Images".
+about=This plugin allows users to download Sentinel-2 images from Copernicus Data Space platform (https://dataspace.copernicus.eu). Images can be downloaded as bands or raw zip file. The plugin also has ability to create various indices. Another option is to download only "quicklook" image (RGB image without coordinate refererence system) instead of Sentinel-2 data. Analysis consists of two processes. "Download Footprints" and "Download Images". In "Download Footprints" section footprints of the images are retrieved based on given conditions (such as date, query area, max cloud etc.) "In Download Images" section credentials are provided images are downloaded based on some options(such as bands to be downloaded, indices etc).
 
 tracker=https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin/issues
 repository=https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin/tree/main/sentinel_downloader
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python, image, ndvi, ndwi, sentinel, remote, sensing
+tags=python, image, ndvi, ndwi, sentinel, remote, sensing, vegetation
 
 homepage=https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin
 category=Plugins

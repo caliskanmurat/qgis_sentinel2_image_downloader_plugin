@@ -29,22 +29,24 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QLineEdit
 from .resources import *
 
 # Import the code for the dialog
-from .sentinel_downloader_dialog import DownloadSentinelDialog
+from .sentinel_downloader_dialog import DownloadSentinelDialog, IndexWindow
 
 from .DrawRect import RectangleMapTool
 
-from qgis.core import QgsVectorLayer, QgsProject
+from qgis.core import QgsVectorLayer, QgsProject, QgsWkbTypes, QgsMapLayer
 
 from osgeo import osr, ogr, gdal
-from datetime import datetime, timedelta
-import requests, time, os, pyproj, zipfile
+from pyproj import CRS, Transformer
+from shapely.wkt import loads
+from shapely.ops import transform
+from datetime import datetime, timedelta, date
+import requests, time, os
 from glob import glob
 import numpy as np
 from shapely.geometry import shape
-from shapely.ops import transform
 import pandas as pd
 from collections import defaultdict
-
+import sys
 
 class DownloadSentinel:
     """QGIS Plugin Implementation."""
@@ -176,6 +178,7 @@ class DownloadSentinel:
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
         icon_path = ':/plugins/sentinel_downloader/icon.png'
+        
         self.add_action(
             icon_path,
             text=self.tr(u'Sentinel 2 Image Downloader'),
@@ -196,8 +199,8 @@ class DownloadSentinel:
     
     def selectInputFile(self):
         self.dlg.le_inputfile.setText("")
-        filePath, _filter = QFileDialog.getOpenFileName(self.dlg, "Select footprint File","", 'GPKG(*.gpkg *.GPKG)')
-        self.dlg.le_inputfile.setText(filePath)
+        filePath, _filter = QFileDialog.getOpenFileNames(self.dlg, "Select footprint File(s)","", 'GPKG(*.gpkg *.GPKG)')
+        self.dlg.le_inputfile.setText(";".join(filePath))
 
     def selectOutputFolder(self):
         sender = self.dlg.sender()
@@ -212,39 +215,23 @@ class DownloadSentinel:
             self.dlg.le_outputFolder_2.setText("")
             output_dir = QFileDialog.getExistingDirectory(None, 'Open working directory', "", QFileDialog.ShowDirsOnly)
             self.dlg.le_outputFolder_2.setText(output_dir)
-        
-    def getTransformedGeometry(self, geom_wkt, srs_wkt):
-        geom = ogr.CreateGeometryFromWkt(geom_wkt)
-        
-        sr_1 = osr.SpatialReference()
-        sr_1.ImportFromWkt(srs_wkt)
-        
-        sr_2 = osr.SpatialReference()
-        sr_2.ImportFromEPSG(4326)
-                
-        if not sr_1.IsSame(sr_2):
-            sr_2.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-            coord_trans = osr.CoordinateTransformation(sr_1, sr_2)
-            geom.Transform(coord_trans)
-        
-        return geom
     
-    def getTransformedGeometry2(self, geom_wkt, srs_wkt):
-        geom = ogr.CreateGeometryFromWkt(geom_wkt)
+    def getTransformedGeometry(self, geom_wkt, srs_wkt, env=False):
+        geom = loads(geom_wkt)
         
-        sr_2 = osr.SpatialReference()
-        sr_2.ImportFromWkt(srs_wkt)
+        from_crs = CRS.from_wkt(srs_wkt)
+        to_crs = CRS.from_epsg(4326)
         
-        sr_1 = osr.SpatialReference()
-        sr_1.ImportFromEPSG(4326)
-                
-        if not sr_1.IsSame(sr_2):
-            sr_1.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-            coord_trans = osr.CoordinateTransformation(sr_1, sr_2)
-            geom.Transform(coord_trans)
+        transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
+        projected = transform(transformer.transform, geom)
         
-        return geom.GetEnvelope()
+        proj_geom = ogr.CreateGeometryFromWkt(projected.wkt)       
         
+        if env:
+            return proj_geom.GetEnvelope()
+        else:
+            return proj_geom    
+    
     def createGPKG(self, products_all, outfile, driver_name = "GPKG"):
         driver = ogr.GetDriverByName(driver_name)
         ds = driver.CreateDataSource(outfile)
@@ -273,7 +260,7 @@ class DownloadSentinel:
         
         for e, (_,row) in enumerate(products_all.iterrows()):
             feat = ogr.Feature(defn)
-         
+            
             for k,v in row.items():
                 if k == "wkt":
                     feat.SetGeometry(ogr.CreateGeometryFromWkt(v))
@@ -284,20 +271,21 @@ class DownloadSentinel:
                         else:
                             feat.SetField(k, v)
                     except:
-                        print(k,v)
+                        message = f"ERROR: {str(e)}"
+                        self.createLog(message)
         
             layer.CreateFeature(feat)
         
         ds.FlushCache()
         ds = layer = defn = feat = None
     
-    def getCanvasExtent(self):        
+    def getCanvasExtent(self):
+        self.dlg.cb_feat_bounds.setChecked(False)
         canvas = QgsProject.instance()
         srs_wkt = canvas.crs().toWkt()
         ext = self.iface.mapCanvas().extent()
         
-        geom = self.getTransformedGeometry(ext.asWktPolygon(), srs_wkt)        
-        minx, maxx, miny, maxy = geom.GetEnvelope()
+        minx, maxx, miny, maxy = self.getTransformedGeometry(ext.asWktPolygon(), srs_wkt, env=True)
             
         self.dlg.sb_extent_minx.setValue(minx)
         self.dlg.sb_extent_miny.setValue(miny)
@@ -305,35 +293,48 @@ class DownloadSentinel:
         self.dlg.sb_extent_maxy.setValue(maxy)
      
     def getLayerExtent(self):
+        self.dlg.cb_feat_bounds.setChecked(False)
         layerName = self.dlg.cb_layers.currentText()
-        layer = QgsProject.instance().mapLayersByName(layerName)[0]
-        srs_wkt = layer.crs().toWkt()        
-        ext = layer.extent()
+        layers = QgsProject.instance().mapLayersByName(layerName)
+        if len(layers) > 0:
+            srs_wkt = layers[0].crs().toWkt()        
+            ext = layers[0].extent()
+            
+            minx, maxx, miny, maxy = self.getTransformedGeometry(ext.asWktPolygon(), srs_wkt, env=True)
+                        
+            self.dlg.sb_extent_minx.setValue(minx)
+            self.dlg.sb_extent_miny.setValue(miny)
+            self.dlg.sb_extent_maxx.setValue(maxx)
+            self.dlg.sb_extent_maxy.setValue(maxy)
+    
+    def checkLayer(self):
+        self.dlg.cb_feat_bounds.setChecked(False)
+        self.resetExtent()
         
-        geom = self.getTransformedGeometry(ext.asWktPolygon(), srs_wkt)        
-        minx, maxx, miny, maxy = geom.GetEnvelope()
-                    
-        self.dlg.sb_extent_minx.setValue(minx)
-        self.dlg.sb_extent_miny.setValue(miny)
-        self.dlg.sb_extent_maxx.setValue(maxx)
-        self.dlg.sb_extent_maxy.setValue(maxy)
+        layerName = self.dlg.cb_layers.currentText()
+        layers = QgsProject.instance().mapLayersByName(layerName)
+        if len(layers) > 0:
+            if layers[0].type() == QgsMapLayer.VectorLayer:
+                self.dlg.cb_feat_bounds.setEnabled(True)
+                no_feats = layers[0].featureCount()
+                self.dlg.lbl_no_feats.setText("# of features : " + str(no_feats) + " ")
+            else:
+                self.dlg.cb_feat_bounds.setEnabled(False)
+                self.dlg.lbl_no_feats.setText("")
+        
+    def resetExtent(self):
+        if self.dlg.cb_feat_bounds.isChecked():
+            self.dlg.sb_extent_minx.setValue(0)
+            self.dlg.sb_extent_miny.setValue(0)
+            self.dlg.sb_extent_maxx.setValue(0)
+            self.dlg.sb_extent_maxy.setValue(0)
+            
+        self.checkExtent()
     
     def getDrawnCoor(self, canvas):
         self.dlg.showMinimized()
         self.rect = RectangleMapTool(canvas, self.dlg)
         canvas.setMapTool(self.rect)
-    
-    def fillCombo(self):
-        val_min = self.dlg.cb_minzoom.currentText()
-        val_max = self.dlg.cb_maxzoom.currentText()
-        
-        if int(val_min) > int(val_max):
-            self.dlg.lbl_checkzoom.setStyleSheet("color:red;")
-            self.dlg.lbl_checkzoom.setText("Invalid zoom levels!")
-            self.dlg.btn_execute.setEnabled(False)
-        else:
-            self.dlg.lbl_checkzoom.setText("")
-            self.dlg.btn_execute.setEnabled(True)
             
     def outFolderCheck(self):
         sender = self.dlg.sender()
@@ -364,8 +365,8 @@ class DownloadSentinel:
             self.dlg.btn_execute_2.setEnabled(all((self.fileCheck2, self.folderCheck2, self.loginCheck2)))
         
     def inputFileCheck(self):
-        file_path = self.dlg.le_inputfile.text()        
-        res = ogr.Open(file_path)
+        file_paths = self.dlg.le_inputfile.text().split(";")
+        res = all([ogr.Open(p) for p in file_paths])
         
         if res:
             self.fileCheck2 = True
@@ -384,49 +385,6 @@ class DownloadSentinel:
         self.dlg.lbl_img.setPixmap(self.pixmap_show)   
         self.dlg.le_password.setEchoMode(QLineEdit.Password)     
     
-    def checkExtractOptions(self):
-        sender = self.dlg.sender()
-        oname = sender.objectName()
-        
-        if oname == "cb_extract_files":
-            if sender.isChecked():
-                self.dlg.cb_delete_zip_file.setEnabled(True)
-                self.dlg.cb_ndvi.setEnabled(True)
-                self.dlg.cb_ndwi.setEnabled(True)
-                self.dlg.cb_clip.setEnabled(True)
-                self.dlg.cb_merge.setEnabled(True)
-            else:
-                self.dlg.cb_delete_zip_file.setEnabled(False)
-                self.dlg.cb_ndvi.setEnabled(False)
-                self.dlg.cb_ndwi.setEnabled(False)
-                self.dlg.cb_clip.setEnabled(False)
-                self.dlg.cb_merge.setEnabled(False)
-                
-                self.dlg.cb_delete_zip_file.setChecked(False)
-                self.dlg.cb_ndvi.setChecked(False)
-                self.dlg.cb_ndwi.setChecked(False)
-                self.dlg.cb_clip.setChecked(False)
-                self.dlg.cb_merge.setChecked(False)
-        
-        elif oname == "cb_ql":
-            if not sender.isChecked():
-                self.dlg.cb_extract_files.setEnabled(True)
-            else:
-                self.dlg.cb_extract_files.setEnabled(False)
-                self.dlg.cb_delete_zip_file.setEnabled(False)
-                self.dlg.cb_ndvi.setEnabled(False)
-                self.dlg.cb_ndwi.setEnabled(False)
-                self.dlg.cb_clip.setEnabled(False)
-                self.dlg.cb_merge.setEnabled(False)
-                
-                self.dlg.cb_extract_files.setChecked(False)
-                self.dlg.cb_delete_zip_file.setChecked(False)
-                self.dlg.cb_ndvi.setChecked(False)
-                self.dlg.cb_ndwi.setChecked(False)
-                self.dlg.cb_clip.setChecked(False)
-                self.dlg.cb_merge.setChecked(False)
-            
-            
     def checkExtent(self):
         minx = float(self.dlg.sb_extent_minx.value())
         maxx = float(self.dlg.sb_extent_maxx.value())
@@ -436,7 +394,8 @@ class DownloadSentinel:
         controls = [maxx > minx,
                     maxy > miny]
         
-        if all(controls):
+                
+        if all(controls) or self.dlg.cb_feat_bounds.isChecked():
             self.extentCheck = True
             self.dlg.lbl_message_2.setText("")
         else:
@@ -471,8 +430,10 @@ class DownloadSentinel:
                 
     
     def createLog(self, message, end=False, clear=False):
-        txt = f"-- {str(datetime.now())}\n{message}\n------------------------------------------------------------------"
-        # txt = (txt + "\n\n------------------------------------------------------------------\n\n") if end else txt
+        try:
+            txt = f"-- {str(datetime.now())}\n{message} - {sys.exc_info()[-1].tb_lineno}\n------------------------------------------------------------------"
+        except:
+            txt = f"-- {str(datetime.now())}\n{message}\n------------------------------------------------------------------"
         
         if clear:
             self.dlg.pe_log.clear() 
@@ -481,17 +442,18 @@ class DownloadSentinel:
         self.dlg.processEvents()       
     
     def array2raster(self, out_raster_path, geotransform, srs_wkt, band_infos, dtype):
-        cols = band_infos[0][0].shape[1]
-        rows = band_infos[0][0].shape[0]
+        cols = band_infos[0][1].shape[1]
+        rows = band_infos[0][1].shape[0]
     
         driver = gdal.GetDriverByName('GTiff')
         outRaster = driver.Create(out_raster_path, cols, rows, len(band_infos), dtype, options=['COMPRESS=DEFLATE'])
         outRaster.SetGeoTransform(geotransform)
         outRaster.SetProjection(srs_wkt)
         
-        for e, (array, nodataval) in enumerate(band_infos, 1):
+        for e, (band_name, array, nodataval) in enumerate(band_infos, 1):
             outband = outRaster.GetRasterBand(e)
             outband.WriteArray(array)
+            outband.SetDescription(band_name)
             outband.SetNoDataValue(nodataval)
             outband.FlushCache()
         
@@ -517,13 +479,14 @@ class DownloadSentinel:
             if r.status_code == 200:
                 self.bear = r.json()["access_token"]
                 self.dlg.lbl_message_6.setText('<html><head/><body><p><span style=" color:#05eb14;"> Login successful! </span></p></body></html>')
+                self.createLog("Login successful!")
                 self.loginCheck2 = True
             else:
                 message = f"ERROR!!!\nStatus Code : {r.status_code}\n{r.text}"
                 self.createLog(message, end=False, clear=False)
         
         except Exception as e:
-            message = r.status_code, f"ERROR: {str(e)}"
+            message = f"ERROR: {str(e)}"
             self.createLog(message, end=False, clear=False)
         
         self.dlg.btn_execute_2.setEnabled(all((self.fileCheck2, self.folderCheck2, self.loginCheck2)))
@@ -571,7 +534,7 @@ class DownloadSentinel:
             
             attributes.update({i["Name"]:i["Value"] for i in prod["Attributes"]})
             
-            transformer = pyproj.Transformer.from_crs(pyproj.CRS('EPSG:4326'), pyproj.CRS('EPSG:3035'), always_xy=True).transform
+            transformer = Transformer.from_crs(CRS('EPSG:4326'), CRS('EPSG:3035'), always_xy=True).transform
             attributes["area_km"] = round(transform(transformer, shape(prod["GeoFootprint"])).area/1000000)
             
             attributes["wkt"] = shape(prod["GeoFootprint"]).wkt
@@ -579,80 +542,67 @@ class DownloadSentinel:
             product_list.append(attributes)
         
         df = pd.DataFrame(product_list)
-        
-        df["cloudCover"] = df["cloudCover"].round(2)
-        df["beginningDateTime"] = pd.to_datetime(df["beginningDateTime"].str.replace("Z","").str.replace("T"," ")).dt.floor("S")
-        df["endingDateTime"] = pd.to_datetime(df["endingDateTime"].str.replace("Z","").str.replace("T"," ")).dt.floor("S")
-        df["processingDate"] = pd.to_datetime(df["processingDate"].str.split("+").str[0])
+        try:
+            df["cloudCover"] = df["cloudCover"].round(2)
+        except:
+            pass
+        try:
+            df["beginningDateTime"] = pd.to_datetime(df["beginningDateTime"].str.replace("Z","").str.replace("T"," ")).dt.floor("S")
+        except:
+            pass
+        try:
+            df["endingDateTime"] = pd.to_datetime(df["endingDateTime"].str.replace("Z","").str.replace("T"," ")).dt.floor("S")
+        except:
+            pass
+        try:
+            df["processingDate"] = pd.to_datetime(df["processingDate"].str.split("+").str[0])
+        except:
+            pass
         
         df.columns = [i.lower() for i in df.columns]
         
-        return df
+        return df                
     
-    def getBandsFromZip(self, flist, producttype):
-        extracts = []
-        if producttype == "S2MSI2A":
-            for img in flist:
-                if "r10m" in img.lower():
-                    if ("TCI" in img):
-                        extracts.append(img)
-                    elif ("B02" in img):
-                        extracts.append(img)
-                    elif ("B03" in img):
-                        extracts.append(img)
-                    elif ("B04" in img):
-                        extracts.append(img)
-                    elif ("B08" in img):
-                        extracts.append(img)
-                        
-                elif "r20m" in img.lower():
-                    if ("B05" in img):
-                        extracts.append(img)
-                    elif ("B06" in img):
-                        extracts.append(img)
-                    elif ("B07" in img):
-                        extracts.append(img)
-                    elif ("B8A" in img):
-                        extracts.append(img)
-                    elif ("B11" in img):
-                        extracts.append(img)
-                    elif ("B12" in img):
-                        extracts.append(img)
-                    elif ("SCL" in img):
-                        extracts.append(img)
-                
-                elif "r60m" in img.lower():
-                    if ("B01" in img):
-                        extracts.append(img)
-                    elif ("B09" in img):
-                        extracts.append(img)
-                    elif ("B10" in img):
-                        extracts.append(img)
-                
-                elif "ql" in img.lower():
-                    extracts.append(img)
-            
-            return extracts
-            
-        elif producttype == "S2MSI1C":
-            return flist
-                
-    
-    def executeFootprints(self):
-        
+    def executeFootprints(self):        
         self.dlg.btn_execute.setText("Running...")
         self.dlg.processEvents() 
         
-        minx = float(self.dlg.sb_extent_minx.value())
-        maxx = float(self.dlg.sb_extent_maxx.value())
-        miny = float(self.dlg.sb_extent_miny.value())
-        maxy = float(self.dlg.sb_extent_maxy.value())        
+        wkt_list_download = []
+        if self.dlg.cb_feat_bounds.isChecked():
+            layerName = self.dlg.cb_layers.currentText()
+            layer = QgsProject.instance().mapLayersByName(layerName)[0]
+            srs_wkt = layer.crs().toWkt()
+            if not srs_wkt:
+                QMessageBox.critical(None, "ERROR", """Invalid CRS!""")
+                return
+            
+            features = layer.getFeatures()
+            wkt_list = []
+            for feat in features:
+                geom = feat.geometry()
+                geom_type = geom.wkbType()
+                geom_wkt = geom.asWkt()
+                
+                geom2 = self.getTransformedGeometry(geom_wkt, srs_wkt, env=False)
+                
+                if geom_type in [QgsWkbTypes.LineString, QgsWkbTypes.MultiLineString, QgsWkbTypes.Point, QgsWkbTypes.MultiPoint]:
+                    wkt_list.append(geom2.ExportToWkt())
+                else:
+                    minx, maxx, miny, maxy = geom2.GetEnvelope()
+                    wkt_list.append(f"POLYGON(({minx} {maxy}, {maxx} {maxy}, {maxx} {miny}, {minx} {miny}, {minx} {maxy}))")
+        
+        else:        
+            minx = float(self.dlg.sb_extent_minx.value())
+            maxx = float(self.dlg.sb_extent_maxx.value())
+            miny = float(self.dlg.sb_extent_miny.value())
+            maxy = float(self.dlg.sb_extent_maxy.value())
+            wkt = f"POLYGON(({minx} {maxy}, {maxx} {maxy}, {maxx} {miny}, {minx} {miny}, {minx} {maxy}))"
+            wkt_list = [wkt]
         
         startDate = self.dlg.dt_startDate.dateTime().toPyDateTime().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         end_date_ = self.dlg.dt_endDate.dateTime().toPyDateTime()
         endDate = (end_date_ + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         
-        wkt = f"POLYGON(({minx} {maxy}, {maxx} {maxy}, {maxx} {miny}, {minx} {miny}, {minx} {maxy}))"
         limit = 100
         cloud = int(self.dlg.sb_cloud.value())
         producttype = self.dlg.cb_producttype.currentText()
@@ -660,8 +610,16 @@ class DownloadSentinel:
         
         self.createLog("Process Started", clear=True)
         
-        total_results = self.getData(wkt, startDate, endDate, limit, offset=0, total_results=True, cloud=cloud, producttype=producttype)
-
+        total_results = 0
+        offset_lists = []
+        for we, wkt in enumerate(wkt_list):
+            total = self.getData(wkt, startDate, endDate, limit, offset=0, total_results=True, cloud=cloud, producttype=producttype)
+            if total > 0:
+                wkt_list_download.append(wkt_list[we])
+                total_results += total
+            offset_lists.append(np.arange(0, total_results, limit))
+            
+        
         if isinstance(total_results, str):
             message = f"total_results couldn't retrieve - {total_results}"
             self.createLog(message)
@@ -672,28 +630,29 @@ class DownloadSentinel:
                 message = f"total_results : {total_results}"
                 self.createLog(message)
                 
-                res = QMessageBox.question(None, "Number of Image", f"""{total_results} images returned after query.\nDo you want to create footprints?""")
-                
+                res = QMessageBox.question(None, "Number of Image", f"""{total_results} images from {len(wkt_list_download)} extents returned after query. This number may decrease after deleting the duplicates.\nDo you want to create footprints?""")
                 if res == QMessageBox.Yes:
                     
-                    self.createLog("Creating footprints...")
-                    
-                    offset_list = np.arange(0, total_results, limit)
+                    self.createLog("Creating footprints...") 
                     
                     products_all = pd.DataFrame()
-                    for i,o in enumerate(offset_list, 1):
-                        self.createLog(f"{i} / {len(offset_list)}")
-                        products = self.getData(wkt, startDate, endDate, limit, offset=o, total_results=False, cloud=cloud, producttype=producttype)
-                        
-                        if isinstance(products, str):
-                            message = f"{products}"
-                            self.createLog(message)
-                        else:
-                            df = self.getProducts(products)
-                            df["query_wkt"] = wkt
+                    for wkt, offset_list in zip(wkt_list_download, offset_lists):
+                        for i, o in enumerate(offset_list, 1):
+                            self.createLog(f"{i} / {len(offset_list)}")
+                            products = self.getData(wkt, startDate, endDate, limit, offset=o, total_results=False, cloud=cloud, producttype=producttype)
                             
-                            products_all = pd.concat([products_all, df], axis=0)
-                            time.sleep(5)
+                            if isinstance(products, str):
+                                message = f"{products}"
+                                self.createLog(message)
+                            else:
+                                df = self.getProducts(products)
+                                df["query_wkt"] = wkt
+                                
+                                products_all = pd.concat([products_all, df], axis=0)
+                                time.sleep(5)
+                    
+                    
+                    products_all = products_all.drop_duplicates(subset="prod_id")
                     
                     sd = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
                     ed = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
@@ -704,17 +663,17 @@ class DownloadSentinel:
                     self.createLog(fr"Exported to {outFolderPath}/{out_name}.gpkg")
                     
                     self.createLog("Footprints created.")
-                    QMessageBox.information(None, "Created", """Footprints created.""")
+                    QMessageBox.information(None, "Created", f"""Footprints file created.\n Number of footprints : {products_all.shape[0]}""")
+                    
+                    if self.dlg.cb_add_to_layer.isChecked():
+                        try:
+                            layer = QgsVectorLayer(fr"{outFolderPath}/{out_name}.gpkg", out_name, "ogr")
+                            QgsProject.instance().addMapLayer(layer)
+                        except:
+                            pass
         
         self.dlg.btn_execute.setText("Generate Footprints")
         self.dlg.processEvents()
-    
-        if self.dlg.cb_add_to_layer.isChecked():
-            try:
-                layer = QgsVectorLayer(fr"{outFolderPath}/{out_name}.gpkg", out_name, "ogr")
-                QgsProject.instance().addMapLayer(layer)
-            except:
-                pass
                         
     def get_access_token(self):
         data = {
@@ -733,14 +692,22 @@ class DownloadSentinel:
         except Exception as e:
             return f"ERROR: {str(e)}"
         
-    def downloadImage(self, url, name, ql=False):
-        if ql:
+    def downloadImage(self, url, name, download_type, band_name=None):
+        if download_type == "ql":
             outpath = fr"{self.dlg.le_outputFolder_2.text()}\{name}_ql.jpg"
-        else:
+            self.createLog(f"{name}")
+            
+        elif download_type == "raw":
             outpath = fr"{self.dlg.le_outputFolder_2.text()}\{name}.zip"
-        
-        self.createLog(f"{name}")
-        
+            self.createLog(f"{name}")
+            
+        elif download_type == "band":
+            out_folder_path = fr"{self.dlg.le_outputFolder_2.text()}\{name}"
+            outpath = fr"{out_folder_path}\{band_name}"
+            self.createLog(f"{band_name}")
+            if not os.path.isdir(out_folder_path):
+                os.makedirs(out_folder_path)
+               
         session = requests.Session()
         if self.bear is None:
             self.bear = self.get_access_token()
@@ -778,8 +745,253 @@ class DownloadSentinel:
             message = f"ERROR!!!\n{str(e)}"
         
         self.createLog(message)           
+    
+    def downloadBands(self, prod_id, prod_identifier, product_type):
+        url = f"""
+        https://download.dataspace.copernicus.eu/odata/v1/Products({prod_id})/Nodes
+        """.strip()
+        
+        try:
+            resp = requests.get(url)
             
+            if resp.status_code == 200:
+                results_json = resp.json()            
+                results_url = results_json["result"][0]["Nodes"]["uri"] + "(GRANULE)/Nodes"
+                
+                resp = requests.get(results_url)
+                resp_json = resp.json()
+                results_img_data_url = resp_json["result"][0]["Nodes"]["uri"] + "(IMG_DATA)/Nodes"
+                
+                resp = requests.get(results_img_data_url)
+                resp_json = resp.json()
+                
+                bands = {}
+                
+                if product_type == "S2MSI1C":
+                    
+                    for band in resp_json["result"]:
+                        name = band["Name"]
+                        uri_raw = results_img_data_url.replace("download","zipper")
+                        uri  = f"{uri_raw}({name})/$value"
+                        bands[name.split(".")[0].split("_")[-1]] = [name, uri]
+                
+                else:
+                    results_nodes_url_r10 = resp_json["result"][0]["Nodes"]["uri"]
+                    results_nodes_url_r20 = resp_json["result"][1]["Nodes"]["uri"]
+                    results_nodes_url_r60 = resp_json["result"][2]["Nodes"]["uri"]
+                    
+                    resp10 = requests.get(results_nodes_url_r10)
+                    resp10_json = resp10.json()
+                    
+                    resp20 = requests.get(results_nodes_url_r20)
+                    resp20_json = resp20.json()
+                    
+                    resp60 = requests.get(results_nodes_url_r60)
+                    resp60_json = resp60.json()
+                    
+                    for band in resp10_json["result"]:
+                        name = band["Name"]
+                        uri_raw = results_img_data_url.replace("download","zipper")
+                        uri  = f"{uri_raw}(R10m)/Nodes({name})/$value"
+                        if ("B02" in name) or ("B03" in name) or ("B04" in name) or ("B08" in name) or ("TCI" in name):
+                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                            
+                    for band in resp20_json["result"]:
+                        name = band["Name"]
+                        uri_raw = results_img_data_url.replace("download","zipper")
+                        uri  = f"{uri_raw}(R20m)/Nodes({name})/$value"
+                        if ("B05" in name) or ("B06" in name) or ("B07" in name) or ("B8A" in name) or ("B11" in name) or ("B12" in name) or ("SCL" in name):
+                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                            
+                    for band in resp60_json["result"]:
+                        name = band["Name"]
+                        uri_raw = results_img_data_url.replace("download","zipper")
+                        uri  = f"{uri_raw}(R60m)/Nodes({name})/$value"
+                        if ("B01" in name) or ("B09" in name):
+                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                
+                
+                for cb_name, cb in self.chc_bands.items():
+                    if (cb_name != "all") and (cb.isChecked()):
+                        b_name = self.bands_map[cb_name]
+                        f_name, b_url = bands.get(b_name, [None,None])
+                        if f_name:
+                            self.downloadImage(b_url, prod_identifier, "band", band_name=f_name)
+                
+                message = "Bands Downloaded"
+                            
+            else:
+                message =  f"ERROR!!!\n - Status Code:{resp.status_code}"
+            
+                
+            
+        except Exception as e:
+            message = f"ERROR!!!\n{str(e)}"
+        
+        self.createLog(message)
+                    
+
+    def indexSettings(self):
+        self.dlg2.show()
+        # self.dlg.hide()
+
+    def createIndex(self, out_file_path, index_name, buf_ysize, buf_xsize, srs_wkt, geotransform, base_band_array, band_paths):
+       
+        if index_name == "ndvi": # (B08 - B04) / (B08 + B04)
+            b4_path = band_paths[0]            
+            b8_array = base_band_array[0]
+                          
+            b4_raster = gdal.Open(b4_path)
+            b4_band = b4_raster.GetRasterBand(1)
+            b4_array_ = b4_band.ReadAsArray()
+            b4_array = np.float32(np.where(b4_array_ == 0, -32768, b4_array_))
+           
+            ndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b4_array), np.add(b8_array, b4_array)))
+            ndvi_array = np.where((b4_array == -32768) | (b8_array == -32768), -32768, ndvi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndvi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NDVI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "ndwi": # (B03 - B08) / (B03 + B08)
+            b3_array = base_band_array[0]            
+            b8_array = base_band_array[1]
+           
+            ndwi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b8_array), np.add(b3_array, b8_array)))
+            ndwi_array = np.where((b3_array == -32768) | (b8_array == -32768), -32768, ndwi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndwi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NDWI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "ndmi": # (B08 - B11) / (B08 + B11)
+            b8_array = base_band_array[0]
+            b11_array = base_band_array[1]
+           
+            ndmi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b11_array), np.add(b8_array, b11_array)))
+            ndmi_array = np.where((b11_array == -32768) | (b8_array == -32768), -32768, ndmi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndmi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NDMI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "ndsi": # (B03 - B11) / (B03 + B11)
+            b3_array = base_band_array[0]
+            b11_array = base_band_array[1]
+           
+            ndsi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b11_array), np.add(b3_array, b11_array)))
+            ndsi_array = np.where((b11_array == -32768) | (b3_array == -32768), -32768, ndsi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndsi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NDSI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "ndbi": # (B11 - B08) / (B11 + B08)
+            b8_array = base_band_array[0]
+            b11_array = base_band_array[1]
+           
+            ndbi_array_ = np.multiply(100, np.divide(np.subtract(b11_array, b8_array), np.add(b11_array, b8_array)))
+            ndbi_array = np.where((b11_array == -32768) | (b8_array == -32768), -32768, ndbi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndbi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NDBI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "nbr": # (B08 - B12) / (B08 + B12)
+            b8_array = base_band_array[0]            
+            b12_path = band_paths[0]
+            
+            buf_ysize, buf_xsize = b8_array.shape
+           
+            b12_raster = gdal.Open(b12_path)
+            b12_band = b12_raster.GetRasterBand(1)
+            b12_array_ = b12_band.ReadAsArray(buf_xsize=buf_xsize, buf_ysize=buf_ysize)
+            b12_array = np.float32(np.where(b12_array_ == 0, -32768, b12_array_))
+           
+            nbr_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b12_array), np.add(b8_array, b12_array)))
+            nbr_array = np.where((b12_array == -32768) | (b8_array == -32768), -32768, nbr_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, nbr_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "NBR created."
+            self.createLog(message)
+            
+        
+        elif index_name == "gndvi": # (B08 - B03) / (B08 + B03)
+            b3_array = base_band_array[0]
+            b8_array = base_band_array[1]
+                     
+            gndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b3_array), np.add(b8_array, b3_array)))
+            gndvi_array = np.where((b3_array == -32768) | (b8_array == -32768), -32768, gndvi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, gndvi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "GNDVI created."
+            self.createLog(message)
+            
+        
+        elif index_name == "bsi": # ((B11 + B04) - (B08 + B02)) / ((B11 + B04) + (B08 + B02))
+            b8_array = base_band_array[0]
+            b11_array = base_band_array[1]
+            
+            b2_path = band_paths[0]
+            b4_path = band_paths[1]
+           
+            b2_raster = gdal.Open(b2_path)
+            b2_band = b2_raster.GetRasterBand(1)
+            b2_array_ = b2_band.ReadAsArray()
+            b2_array = np.float32(np.where(b2_array_ == 0, -32768, b2_array_))
+                          
+            b4_raster = gdal.Open(b4_path)
+            b4_band = b4_raster.GetRasterBand(1)
+            b4_array_ = b4_band.ReadAsArray()
+            b4_array = np.float32(np.where(b4_array_ == 0, -32768, b4_array_))
+
+            nom = np.subtract(np.add(b11_array, b4_array), np.add(b8_array, b2_array))
+            denom = np.add(np.add(b11_array, b4_array), np.add(b8_array, b2_array))
+
+            bsi_array_ = np.multiply(100, np.divide(nom, denom))
+            bsi_array = np.where((b4_array == -32768) | (b2_array == -32768), -32768, bsi_array_)
+           
+            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, bsi_array, -32768)], gdal.GDT_Int16)
+                                   
+            message = "BSI created."
+            self.createLog(message)
+        
+
     def executeDownloadImages(self):
+        d1 = [i.isChecked() for i in self.chc_bands.values()]
+        d2 = [i.isChecked() for i in self.chc_other.values()]
+        d = [*d1, *d2]
+        if not any(d):
+            QMessageBox.critical(None, "ERROR", """Nothing selected to download!""")
+            return
+        
+        
+        img_paths = self.dlg.le_inputfile.text().split(";")
+        total_images = 0
+        for ip in img_paths:
+            if ip.endswith("gpkg"):
+                f = ogr.Open(ip)
+                lyr = f.GetLayer()
+                fc = lyr.GetFeatureCount()
+                total_images += fc
+        
+        res = QMessageBox.question(None, "Number of Image", f"""{total_images} frame(s) will be downloaded. Do you want to continue?""")
+        if res == QMessageBox.No:
+            return
+        
+        self.createLog("DOWNLOAD STARTED")
         
         clip_geoms = {}
         clip_geoms2 = {}
@@ -787,239 +999,513 @@ class DownloadSentinel:
         self.dlg.btn_execute_2.setText("Running...")
         self.dlg.processEvents() 
         
-        file_path = self.dlg.le_inputfile.text()
-        
-        data = ogr.Open(file_path)
-        layer = data.GetLayer()
-        lyr_defn = layer.GetLayerDefn()
-        field_cnt = lyr_defn.GetFieldCount()
-        fields = [lyr_defn.GetFieldDefn(i).GetName() for i in range(field_cnt)]
-
-        if not (("prod_download_url" in fields) and ("prod_identifier" in fields)):
-            QMessageBox.critical(None, "ERROR", """Invalid input file. Use footprins file that created by this plugin!""")
-            return
-        
-        self.createLog("DOWNLOAD STARTED")
-
-        for feat in layer:
-            prod_identifier = feat.GetField("prod_identifier")
-            prod_url = feat.GetField("prod_download_url")
-            ql_url = feat.GetField("prod_quicklook_url")
-            img_name = feat.GetField("prod_identifier")
-            query_geom_wkt = feat.GetField("query_wkt")
-            producttype = feat.GetField("producttype")
+        img_name_list = []
+        file_paths = self.dlg.le_inputfile.text().split(";")
+        for file_path in file_paths:
+            data = ogr.Open(file_path)
+            layer = data.GetLayer()
+            lyr_defn = layer.GetLayerDefn()
+            field_cnt = lyr_defn.GetFieldCount()
+            fields = [lyr_defn.GetFieldDefn(i).GetName() for i in range(field_cnt)]
             
-            clip_geoms[prod_identifier] = query_geom_wkt
+            cons = [("prod_id" in fields),
+                    ("prod_download_url" in fields),
+                    ("prod_quicklook_url" in fields),
+                    ("prod_identifier" in fields),
+                    ("query_wkt" in fields),
+                    ("producttype" in fields)
+                    ]
+    
+            if not all(cons):
+                QMessageBox.critical(None, "ERROR", """Invalid input file. Use footprins file that created by this plugin!""")
+                return
             
-            if self.dlg.cb_ql.isChecked():
-                try:
-                    self.downloadImage(ql_url, img_name, ql=True)            
-                except Exception as e:
-                    self.createLog(str(e))
-            else:                            
-                try:
-                    self.downloadImage(prod_url, img_name)
+            for feat in layer:
+                prod_id = feat.GetField("prod_id")
+                prod_url = feat.GetField("prod_download_url")
+                ql_url = feat.GetField("prod_quicklook_url")
+                img_name = feat.GetField("prod_identifier")
+                query_geom_wkt = feat.GetField("query_wkt")
+                producttype = feat.GetField("producttype")
                 
-                    if self.dlg.cb_extract_files.isChecked():
-                        self.createLog("EXTRACTING FILES...")
-                                       
-                        path = fr"{self.dlg.le_outputFolder_2.text()}\{img_name}.zip"
+                clip_geoms[img_name] = query_geom_wkt
+                
+                if self.chc_other["ql"].isChecked():
+                    try:
+                        self.downloadImage(ql_url, img_name, download_type = "ql")            
+                    except Exception as e:
+                        self.createLog(str(e))
+                
+                elif self.chc_other["raw"].isChecked():
+                    try:
+                        self.downloadImage(prod_url, img_name, download_type = "raw")
+                    except Exception as e:
+                        self.createLog(str(e))
+                
+                else:                            
+                    try:
+                        self.downloadBands(prod_id, img_name, producttype)
                         
-                        with zipfile.ZipFile(path) as zf:
-                            
-                            if not os.path.isdir(f"{self.dlg.le_outputFolder_2.text()}/{img_name}"):
-                                os.makedirs(f"{self.dlg.le_outputFolder_2.text()}/{img_name}")
-                            
-                            flist = ([i for i in zf.namelist() if (("IMG_DATA" in i) and (i.endswith("jp2"))) or ("ql" in i)])
-                            
-                            extracts = self.getBandsFromZip(flist, producttype)
-                            
-                            for z in extracts:
-                                export_name = os.path.split(z)[-1]
-                                
-                                with open(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\{export_name}", "wb") as f:
-                                    f.write(zf.read(z))
-                                    
-                                message = f"{export_name}\tDONE!!!"
-                                self.createLog(message)
-            
-                        if self.dlg.cb_delete_zip_file.isChecked():
-                            try:
-                                os.remove(path)
-                                message = "Zip File is Deleted"
-                                self.createLog(message)
-                            except Exception as e:
-                                message = f"*** ERROR - Zip File Couldn't Be Deleted - {str(e)}"
-                                self.createLog(message)
-                       
-                        if self.dlg.cb_ndvi.isChecked() or self.dlg.cb_ndwi.isChecked():
+                        b8_cons = [self.dlg2.cb_ndvi.isChecked(),
+                                   self.dlg2.cb_ndwi.isChecked(),
+                                   self.dlg2.cb_ndmi.isChecked(),
+                                   self.dlg2.cb_ndbi.isChecked(),
+                                   self.dlg2.cb_nbr.isChecked(),
+                                   self.dlg2.cb_gndvi.isChecked(),
+                                   self.dlg2.cb_bsi.isChecked()
+                                   ]
+                        if any(b8_cons):
                             if producttype == "S2MSI2A":
                                 b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08_10m.jp2")[0]
-                                
+                               
                             elif producttype == "S2MSI1C":
                                 b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08.jp2")[0]
-                                
+                               
                             b8_raster = gdal.Open(b8_path)
                             b8_band = b8_raster.GetRasterBand(1)
-                            b8_array = np.float32(np.where(b8_band.ReadAsArray() == 0, -32768, b8_band.ReadAsArray()))
-                            
+                            b8_array_ = b8_band.ReadAsArray()
+                            b8_array = np.float32(np.where(b8_array_ == 0, -32768, b8_array_))
+                            buf_ysize, buf_xsize = b8_array.shape
+                           
                             srs_b8 = b8_raster.GetSpatialRef()
-                            srs_b8_wkt = srs_b8.ExportToWkt()
-                            geotransform = b8_raster.GetGeoTransform()                
+                            srs_wkt = srs_b8.ExportToWkt()
+                            geotransform = b8_raster.GetGeoTransform()
                         
-                            if self.dlg.cb_ndvi.isChecked():
-                                
-                                message = "NDVI creating started."
-                                self.createLog(message)
-                                
-                                if producttype == "S2MSI2A":
-                                    b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
-                                elif producttype == "S2MSI1C":
-                                    b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
-                                    
-                                b4_raster = gdal.Open(b4_path)
-                                b4_band = b4_raster.GetRasterBand(1)
-                                b4_array = np.float32(np.where(b4_band.ReadAsArray() == 0, -32768, b4_band.ReadAsArray()))
-                                
-                                ndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b4_array), np.add(b8_array, b4_array)))
-                                ndvi_array = np.where((b4_array == -32768) | (b8_array == -32768), -32768, ndvi_array_)
-                                
-                                out_file_ndvi = b8_path.replace("B08","ndvi").replace("jp2", "tif")
-                                self.array2raster(out_file_ndvi, geotransform, srs_b8_wkt, [(ndvi_array, -32768)], gdal.GDT_Int16)
-                                                        
-                                message = "NDVI created."
-                                self.createLog(message)
-                                
-                            if self.dlg.cb_ndwi.isChecked():
-                                
-                                message = "NDWI creating started."
-                                self.createLog(message)
-                                
-                                if producttype == "S2MSI2A":
-                                    b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03_10m.jp2")[0]
-                                    
-                                elif producttype == "S2MSI1C":
-                                    b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03.jp2")[0]
-                                    
-                                b3_raster = gdal.Open(b3_path)
-                                b3_band = b3_raster.GetRasterBand(1)
-                                b3_array = np.float32(np.where(b3_band.ReadAsArray() == 0, -32768, b3_band.ReadAsArray()))
-                                
-                                ndwi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b8_array), np.add(b3_array, b8_array)))
-                                ndwi_array = np.where((b3_array == -32768) | (b8_array == -32768), -32768, ndwi_array_)
-                                
-                                out_file_ndwi = b8_path.replace("B08","ndwi").replace("jp2", "tif")
-                                self.array2raster(out_file_ndwi, geotransform, srs_b8_wkt, [(ndwi_array, -32768)], gdal.GDT_Int16)
-                                                        
-                                message = "NDWI created."
-                                self.createLog(message)
-                                
-                except Exception as e:
-                    self.createLog(str(e))
-                    
-        data.FlushCache()
-        data = layer = None
-        del data, layer
-        
-        self.createLog("Images Downloaded")
-        
-        if self.dlg.cb_clip.isChecked():
-            try:            
-                message = "Clipping Images..."
-                self.createLog(message)
-                    
-                out_folder_path_clipped = fr"{self.dlg.le_outputFolder_2.text()}\clipped_vrt"
-                
-                flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
-                flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
-                flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
-                
-                img_dict = defaultdict(list)
-    
-                for p in flist_for_vrt:
-                    pr_id, name = p.split("\\")[-2:]
-                    pr_type = pr_id.split("_")[1]    
-                    name = os.path.split(p)[-1]
-                    name_splitted = name.split("_", maxsplit=2)
-                    
-                    zone = "z" + name_splitted[0][1:3]
-                    dt = name_splitted[1].split("T")[0]
-                    band = name_splitted[-1].split(".")[0]
-                    img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p)
-                    
-                    clip_geoms2[f"{zone}_{dt}_{pr_type}_{band}"] = clip_geoms[pr_id]
-                
-                for name, path_list in img_dict.items():
-                    zn, dt, pr_type = name.split("_")[:3]
-                    
-                    r = gdal.Open(path_list[0])
-                    s = r.GetSpatialRef()
-                    srs_wkt = s.ExportToWkt()
-                    
-                    minx, maxx, miny, maxy = self.getTransformedGeometry2(clip_geoms2[name], srs_wkt)
-                    
-                    out_folder_path = fr"{out_folder_path_clipped}\{dt}\{zn}\{pr_type}"
-                    
-                    if not os.path.isdir(out_folder_path):
-                        os.makedirs(out_folder_path)     
                         
-                    vrt_options = gdal.BuildVRTOptions(outputBounds=(minx, miny, maxx, maxy))
-                    my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list, options=vrt_options)
-                    my_vrt.FlushCache()
-                    my_vrt = None
-                    del my_vrt
-                
-                self.createLog("Images Clipped as VRT.")
+                        
+                        b3_cons = [self.dlg2.cb_ndwi.isChecked(),
+                                   self.dlg2.cb_ndsi.isChecked(),
+                                   self.dlg2.cb_gndvi.isChecked()
+                                   ]
+                        if any(b3_cons):
+                            if producttype == "S2MSI2A":
+                                b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03_10m.jp2")[0]
+                               
+                            elif producttype == "S2MSI1C":
+                                b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03.jp2")[0]
+                               
+                            b3_raster = gdal.Open(b3_path)
+                            b3_band = b3_raster.GetRasterBand(1)
+                            b3_array_ = b3_band.ReadAsArray()
+                            b3_array = np.float32(np.where(b3_array_ == 0, -32768, b3_array_))
+                        
+                        
+                        b11_cons = [self.dlg2.cb_ndmi.isChecked(),
+                                   self.dlg2.cb_ndsi.isChecked(),
+                                   self.dlg2.cb_ndbi.isChecked(),
+                                   self.dlg2.cb_bsi.isChecked()
+                                   ]
+                        if any(b11_cons):
+                            if producttype == "S2MSI2A":
+                                b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11_20m.jp2")[0]
+                               
+                            elif producttype == "S2MSI1C":
+                                b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11.jp2")[0]
+                               
+                            b11_raster = gdal.Open(b11_path)
+                            b11_band = b11_raster.GetRasterBand(1)
+                            b11_array_ = b11_band.ReadAsArray(buf_xsize=buf_xsize, buf_ysize=buf_ysize)
+                            b11_array = np.float32(np.where(b11_array_ == 0, -32768, b11_array_))
+                            
+                        
+                        # -----------------------------------------------------------------------------------------
+                        
+                        
+                        if self.dlg2.cb_ndvi.isChecked():
+                            if producttype == "S2MSI2A":
+                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
+                               
+                            elif producttype == "S2MSI1C":
+                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
+                                
+                            out_file_path = b8_path.replace("B08","ndvi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "ndvi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt, 
+                                             geotransform, 
+                                             [b8_array],
+                                             [b4_path])
+                            
+                        if self.dlg2.cb_ndwi.isChecked():
+                            out_file_path = b8_path.replace("B08","ndwi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "ndwi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b3_array, b8_array],
+                                             [])
+                            
+                        if self.dlg2.cb_ndmi.isChecked():
+                            out_file_path = b8_path.replace("B08","ndmi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "ndmi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b8_array, b11_array],
+                                             [])
+                            
+                        if self.dlg2.cb_ndsi.isChecked():
+                            out_file_path = b3_path.replace("B03","ndsi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "ndsi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b3_array, b11_array],
+                                             [])
+                            
+                        if self.dlg2.cb_ndbi.isChecked():
+                            out_file_path = b8_path.replace("B08","ndbi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "ndbi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b8_array, b11_array],
+                                             [])
+                            
+                        if self.dlg2.cb_nbr.isChecked():
+                            if producttype == "S2MSI2A":
+                                b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12_20m.jp2")[0]
+                               
+                            elif producttype == "S2MSI1C":
+                                b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12.jp2")[0]
+                                
+                            out_file_path = b8_path.replace("B08","nbr").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "nbr",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b8_array],
+                                             [b12_path])
+                            
+                        if self.dlg2.cb_gndvi.isChecked():
+                            out_file_path = b8_path.replace("B08","gndvi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "gndvi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b3_array, b8_array],
+                                             [])
+                            
+                        if self.dlg2.cb_bsi.isChecked():
+                            if producttype == "S2MSI2A":
+                                b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02_10m.jp2")[0]
+                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
+                               
+                            elif producttype == "S2MSI1C":
+                                b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02.jp2")[0]
+                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
+                                
+                            out_file_path = b8_path.replace("B08","bsi").replace("jp2", "tif")
+                            self.createIndex(out_file_path,
+                                             "bsi",
+                                             buf_ysize,
+                                             buf_xsize,
+                                             srs_wkt,
+                                             geotransform,
+                                             [b8_array, b11_array],
+                                             [b2_path, b4_path])
+                        
+                        
+                        img_name_list.append(img_name)
+                            
+                    
+                    except Exception as e:
+                        self.createLog(str(e))
+                        
+            data.FlushCache()
+            data = layer = None
+            del data, layer
             
-            except Exception as e:
-                self.createLog(str(e))
-                
+            self.createLog("Images Downloaded")
             
-        if self.dlg.cb_merge.isChecked():
+        if self.dlg2.cb_clip.isChecked():
             try:
-                message = "Merging Images..."
-                self.createLog(message)
+                for img_name in img_name_list:
                     
-                out_folder_path_merged = fr"{self.dlg.le_outputFolder_2.text()}\merged_vrt"
-                
-                flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
-                flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
-                flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
-                
-                img_dict = defaultdict(list)
-    
-                for p in flist_for_vrt:
-                    pr_id, name = p.split("\\")[-2:]
-                    pr_type = pr_id.split("_")[1]    
-                    name = os.path.split(p)[-1]
-                    name_splitted = name.split("_", maxsplit=2)
+                    message = "Clipping Images..."
+                    self.createLog(message)
+                        
+                    out_folder_path_clipped = fr"{self.dlg.le_outputFolder_2.text()}\clipped_vrt"
                     
-                    zone = "z" + name_splitted[0][1:3]
-                    dt = name_splitted[1].split("T")[0]
-                    band = name_splitted[-1].split(".")[0]
-                    img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p) 
+                    flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
+                    flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
+                    flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
                     
-                for name, path_list in img_dict.items():
-                    zn, dt, pr_type = name.split("_")[:3]                 
-                    out_folder_path = fr"{out_folder_path_merged}\{dt}\{zn}\{pr_type}"
+                    img_dict = defaultdict(list)
+        
+                    for p in flist_for_vrt:
+                        pr_id, name = p.split("\\")[-2:]
+                        pr_type = pr_id.split("_")[1]    
+                        name = os.path.split(p)[-1]
+                        name_splitted = name.split("_", maxsplit=2)
+                        
+                        zone = "z" + name_splitted[0][1:3]
+                        dt = name_splitted[1].split("T")[0]
+                        band = name_splitted[-1].split(".")[0]
+                        img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p)
+                        
+                        clip_geoms2[f"{zone}_{dt}_{pr_type}_{band}"] = clip_geoms[pr_id]
                     
-                    if not os.path.isdir(out_folder_path):
-                        os.makedirs(out_folder_path)            
+                    for name, path_list in img_dict.items():
+                        zn, dt, pr_type = name.split("_")[:3]
+                        
+                        r = gdal.Open(path_list[0])
+                        s = r.GetSpatialRef()
+                        srs_wkt = s.ExportToWkt()
+                        
+                        geom = ogr.CreateGeometryFromWkt(clip_geoms2[name])
+                        
+                        if geom.GetGeometryName() not in ("POLYGON", "MULTIPOLYGON"):
+                            self.createLog("Clip by Extent VRT option available for only Polygon and MultiPolygon Extents")
+                            continue
+                        
+                        minx, maxx, miny, maxy = self.getTransformedGeometry(clip_geoms2[name], srs_wkt, env=True)
+                        
+                        out_folder_path = fr"{out_folder_path_clipped}\{dt}\{zn}\{pr_type}"
+                        
+                        if not os.path.isdir(out_folder_path):
+                            os.makedirs(out_folder_path)     
+                            
+                        vrt_options = gdal.BuildVRTOptions(outputBounds=(minx, miny, maxx, maxy))
+                        my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list, options=vrt_options)
+                        my_vrt.FlushCache()
+                        my_vrt = None
+                        del my_vrt
                     
-                    my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list)
-                    my_vrt.FlushCache()
-                    my_vrt = None
-                    del my_vrt
-                
-                self.createLog("Images Merged by Date as VRT.")
+                    self.createLog("Images Clipped as VRT.")
             
             except Exception as e:
                 self.createLog(str(e))
+                    
+                
+        if self.dlg2.cb_merge.isChecked():
+            try:
+                for img_name in img_name_list:
+                    
+                    message = "Merging Images..."
+                    self.createLog(message)
+                        
+                    out_folder_path_merged = fr"{self.dlg.le_outputFolder_2.text()}\merged_vrt"
+                    
+                    flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
+                    flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
+                    flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
+                    
+                    img_dict = defaultdict(list)
         
-        self.dlg.btn_execute_2.setText("Download Images")
-        self.dlg.processEvents() 
-        
+                    for p in flist_for_vrt:
+                        pr_id, name = p.split("\\")[-2:]
+                        pr_type = pr_id.split("_")[1]    
+                        name = os.path.split(p)[-1]
+                        name_splitted = name.split("_", maxsplit=2)
+                        
+                        zone = "z" + name_splitted[0][1:3]
+                        dt = name_splitted[1].split("T")[0]
+                        band = name_splitted[-1].split(".")[0]
+                        img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p) 
+                        
+                    for name, path_list in img_dict.items():
+                        zn, dt, pr_type = name.split("_")[:3]                 
+                        out_folder_path = fr"{out_folder_path_merged}\{dt}\{zn}\{pr_type}"
+                        
+                        if not os.path.isdir(out_folder_path):
+                            os.makedirs(out_folder_path)            
+                        
+                        my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list)
+                        my_vrt.FlushCache()
+                        my_vrt = None
+                        del my_vrt
+                    
+                    self.createLog("Images Merged by Date as VRT.")
+            
+            except Exception as e:
+                self.createLog(str(e))
+            
+            self.dlg.btn_execute_2.setText("Download Images")
+            self.dlg.processEvents() 
+            
         QMessageBox.information(None, "Created", """Images Downloaded.""")
+        
+    def indicesOk(self):
+        self.dlg2.hide()
+        
+        raw_ql = [self.bands_map[cb_name] for cb_name, cb in self.chc_other.items() if cb.isChecked()]
+        bands = [self.bands_map[cb_name] for cb_name, cb in self.chc_bands.items() if ((cb_name != "all") and(cb.isChecked()))]
+        indices = [cb_name for cb_name, cb in self.chc_indices.items() if cb.isChecked()]
+        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if cb.isChecked()]
+        
+        
+        if raw_ql:
+            txt = "Image : " + ", ".join(raw_ql)
+        else:
+            if bands:
+                if indices:
+                    txt = "Bands : " + ", ".join(bands) + "\n\n"
+                    txt += "Indices : " + ", ".join(indices)
+                else:
+                    txt = "Bands : " + ", ".join(bands)
+                    
+                if merge:
+                    txt += "\n\nMerge Options : " + ", ".join(merge)
+            else:
+                txt = ""
+               
+        
+        self.dlg.pe_summary.clear()
+        self.dlg.pe_summary.appendPlainText(txt)
+
+    def onCloseEvent2(self, event):
+        raw_ql = [self.bands_map[cb_name] for cb_name, cb in self.chc_other.items() if cb.isChecked()]
+        bands = [self.bands_map[cb_name] for cb_name, cb in self.chc_bands.items() if ((cb_name != "all") and(cb.isChecked()))]
+        indices = [cb_name for cb_name, cb in self.chc_indices.items() if cb.isChecked()]
+        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if cb.isChecked()]
+        
+        
+        if raw_ql:
+            txt = "Image : " + ", ".join(raw_ql)
+        else:
+            if bands:
+                if indices:
+                    txt = "Bands : " + ", ".join(bands) + "\n\n"
+                    txt += "Indices : " + ", ".join(indices)
+                else:
+                    txt = "Bands : " + ", ".join(bands)
+                    
+                if merge:
+                    txt += "\n\nMerge Options : " + ", ".join(merge)
+            else:
+                txt = ""
+               
+        
+        self.dlg.pe_summary.clear()
+        self.dlg.pe_summary.appendPlainText(txt)
+    
+    def onCloseEvent(self, event):
+        self.dlg2.close()
+    
+    def clearAllChecks(self):
+        for cb in self.chc_other.values():
+            cb.setChecked(False)
+        for cb in self.chc_bands.values():
+            cb.setChecked(False)
+            cb.setEnabled(True)
+        for cb in self.chc_indices.values():
+            cb.setChecked(False)
+            cb.setEnabled(True)
+        for cb in self.chc_clip_merge.values():
+            cb.setChecked(False)
+            cb.setEnabled(True)
+    
+    def cb_control(self):
+        sender = self.dlg.sender()
+        oname = sender.objectName()
+        
+        if oname == "cb_ndvi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b4","b8"]:
+                        cb.setChecked(True)
+        elif oname == "cb_ndwi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b3","b8"]:
+                        cb.setChecked(True)
+        elif oname == "cb_ndmi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b8","b11"]:
+                        cb.setChecked(True)
+        elif oname == "cb_ndsi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b3","b11"]:
+                        cb.setChecked(True)
+        elif oname == "cb_ndbi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b8","b11"]:
+                        cb.setChecked(True)
+        elif oname == "cb_nbr":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b8","b12"]:
+                        cb.setChecked(True)
+        elif oname == "cb_gndvi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b8","b3"]:
+                        cb.setChecked(True)
+        elif oname == "cb_bsi":
+            if sender.isChecked():
+                for nm, cb in self.chc_bands.items():
+                    if nm in ["b2","b4","b8","b11"]:
+                        cb.setChecked(True)        
+        
+        
+        elif oname == "cb_all":
+            if sender.isChecked():
+                for _, cb in self.chc_bands.items():
+                    cb.setChecked(True)
+            else:
+                for _, cb in self.chc_bands.items():
+                    cb.setChecked(False)
+        
+        
+        elif oname == "cb_ql":
+            if sender.isChecked():
+                for _, cb in self.chc_bands.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                for _, cb in self.chc_indices.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                for _, cb in self.chc_clip_merge.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                self.chc_other["raw"].setChecked(False)
+            else:
+                for _, cb in self.chc_bands.items():
+                    cb.setEnabled(True)
+                for _, cb in self.chc_indices.items():
+                    cb.setEnabled(True)
+                for _, cb in self.chc_clip_merge.items():
+                    cb.setEnabled(True)
+        
+        
+        elif oname == "cb_raw":
+            if sender.isChecked():
+                for _, cb in self.chc_bands.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                for _, cb in self.chc_indices.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                for _, cb in self.chc_clip_merge.items():
+                    cb.setChecked(False)
+                    cb.setEnabled(False)
+                self.chc_other["ql"].setChecked(False)
+            else:
+                for _, cb in self.chc_bands.items():
+                    cb.setEnabled(True)
+                for _, cb in self.chc_indices.items():
+                    cb.setEnabled(True)
+                for _, cb in self.chc_clip_merge.items():
+                    cb.setEnabled(True)
+        
     
     def run(self):
         """Run method that performs all the real work"""
@@ -1029,6 +1515,22 @@ class DownloadSentinel:
         if self.first_start == True:
             # self.first_start = False
             self.dlg = DownloadSentinelDialog()
+            self.dlg2 = IndexWindow()
+            
+            if any([
+                (date.today().day == 23 and date.today().month == 4),
+                (date.today().day == 19 and date.today().month == 5),
+                (date.today().day == 30 and date.today().month == 8),
+                (date.today().day == 29 and date.today().month == 10),
+                (date.today().day == 10 and date.today().month == 11)
+                ]):
+                
+                self.dlg.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
+                self.dlg2.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
+            
+            self.dlg2.closeEvent = self.onCloseEvent2
+            self.dlg.closeEvent = self.onCloseEvent
+
             
             self.dateCheck = True
             self.extentCheck = False
@@ -1040,9 +1542,21 @@ class DownloadSentinel:
             
             self.bear = None
             
-            self.pixmap_show = QPixmap(f'{self.plugin_dir}/show.png')
-            self.pixmap_hide = QPixmap(f'{self.plugin_dir}/hide.png')
+            self.pixmap_hide = QPixmap(':/plugins/sentinel_downloader/show.png')
+            self.pixmap_show = QPixmap(':/plugins/sentinel_downloader/hide.png')
+            
             self.dlg.lbl_img.setPixmap(self.pixmap_show)
+            
+            self.dlg2.lbl_url_ndvi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndvi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_ndwi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndwi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_ndmi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndmi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_ndsi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndsi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_ndbi.setText("""<html><head/><body><a href="https://www.arcgis.com/home/item.html?id=3cf4e98f035e47279091dc74d43392a5"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_nbr.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/nbr/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_gndvi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/gndvi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            self.dlg2.lbl_url_bsi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/barren_soil/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
+            
+            self.dlg.lbl_info.setText("""<html><head/><body><a href="https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin"><img width="20" height="20" src=":/plugins/sentinel_downloader/info.png"/></a></body></html>""")
             
             ed = QDate.currentDate()       
             self.dlg.dt_endDate.setDate(ed)
@@ -1054,12 +1568,96 @@ class DownloadSentinel:
             self.dlg.cb_layers.clear()
             self.dlg.cb_layers.addItems(layers)
             
+            layerName = self.dlg.cb_layers.currentText()
+            selected_layers = QgsProject.instance().mapLayersByName(layerName)
+            if len(selected_layers) > 0:
+                if selected_layers[0].type() == QgsMapLayer.VectorLayer:
+                    self.dlg.cb_feat_bounds.setEnabled(True)
+                    no_feats = selected_layers[0].featureCount()
+                    self.dlg.lbl_no_feats.setText("# of features : " + str(no_feats) + " ")
+                
+                else:
+                    self.dlg.cb_feat_bounds.setEnabled(False)              
+            
+            self.chc_bands = {
+                    "all" : self.dlg2.cb_all,
+                    "b1" : self.dlg2.cb_b1,
+                    "b2" : self.dlg2.cb_b2,
+                    "b3" : self.dlg2.cb_b3,
+                    "b4" : self.dlg2.cb_b4,
+                    "b5" : self.dlg2.cb_b5,
+                    "b6" : self.dlg2.cb_b6,
+                    "b7" : self.dlg2.cb_b7,
+                    "b8" : self.dlg2.cb_b8,
+                    "b8a" : self.dlg2.cb_b8a,
+                    "b9" : self.dlg2.cb_b9,
+                    "b10" : self.dlg2.cb_b10,
+                    "b11" : self.dlg2.cb_b11,
+                    "b12" : self.dlg2.cb_b12,
+                    "btci" : self.dlg2.cb_tci,
+                    "bscl" : self.dlg2.cb_scl
+            }
+            
+            self.chc_indices = {
+                    "ndvi" : self.dlg2.cb_ndvi,
+                    "ndwi" : self.dlg2.cb_ndwi,
+                    "ndmi" : self.dlg2.cb_ndmi,
+                    "ndsi" : self.dlg2.cb_ndsi,
+                    "ndbi" : self.dlg2.cb_ndbi,
+                    "nbr" : self.dlg2.cb_nbr,
+                    "gndvi" : self.dlg2.cb_gndvi,
+                    "bsi" : self.dlg2.cb_bsi
+            }
+            
+            self.chc_other = {
+                    "ql" : self.dlg2.cb_ql,
+                    "raw" : self.dlg2.cb_raw
+            }
+            
+            self.chc_clip_merge = {
+                    "merge" : self.dlg2.cb_merge,
+                    "clip" : self.dlg2.cb_clip
+            }
+            
+            
+            self.bands_map = {
+                    "b1" : "B01",
+                    "b2" : "B02",
+                    "b3" : "B03",
+                    "b4" : "B04",
+                    "b5" : "B05",
+                    "b6" : "B06",
+                    "b7" : "B07",
+                    "b8" : "B08",
+                    "b8a" : "B8A",
+                    "b9" : "B09",
+                    "b10" : "B10",
+                    "b11" : "B11",
+                    "b12" : "B12",
+                    "btci" : "TCI",
+                    "bscl" : "SCL",
+                    "ql":"Quicklook Image (.jpg)",
+                    "raw":"Raw Image (.zip)",
+                    "merge" : "Merge as VRT",
+                    "clip" : "Clip by Extent as VRT"
+            }
+            
+            
             self.dlg.lbl_message_2.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid extent value! </span></p></body></html>')
             self.dlg.lbl_message_3.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid folder path! </span></p></body></html>')
             self.dlg.lbl_message_4.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid folder path! </span></p></body></html>')
             self.dlg.lbl_message_5.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid file path! </span></p></body></html>')
             self.dlg.lbl_message_6.setText('<html><head/><body><p><span style=" color:#ff0000;"> Login to download! </span></p></body></html>')
-                        
+            
+            for _, cb in self.chc_indices.items():
+                cb.clicked.connect(self.cb_control)
+            
+            for _, cb in self.chc_bands.items():
+                cb.clicked.connect(self.cb_control)
+            
+            for _, cb in self.chc_other.items():
+                cb.clicked.connect(self.cb_control)
+            
             self.dlg.btn_canvasExtent.clicked.connect(self.getCanvasExtent)
             self.dlg.btn_layerextent.clicked.connect(self.getLayerExtent)
             self.dlg.tbtn_draw.clicked.connect(lambda x:self.getDrawnCoor(self.iface.mapCanvas()))            
@@ -1083,15 +1681,17 @@ class DownloadSentinel:
             
             self.dlg.btn_checkcreds.clicked.connect(self.checkCredentials)
             
-            self.dlg.cb_extract_files.clicked.connect(self.checkExtractOptions)
-            self.dlg.cb_delete_zip_file.clicked.connect(self.checkExtractOptions)
-            self.dlg.cb_ndvi.clicked.connect(self.checkExtractOptions)
-            self.dlg.cb_ndwi.clicked.connect(self.checkExtractOptions)
-            self.dlg.cb_ql.clicked.connect(self.checkExtractOptions)
-            
             self.dlg.lbl_img.mousePressEvent = self.showPassword
             self.dlg.lbl_img.mouseReleaseEvent = self.hidePassword
             
+            self.dlg.pb_indices.clicked.connect(self.indexSettings)
             
-
+            self.dlg.btn_clearLogs.clicked.connect(lambda x:self.dlg.pe_log.clear())
+            
+            self.dlg2.btn_clearAll.clicked.connect(self.clearAllChecks)
+            self.dlg2.btn_closeIndex.clicked.connect(self.indicesOk)
+            
+            self.dlg.cb_layers.currentTextChanged.connect(self.checkLayer)
+            self.dlg.cb_feat_bounds.clicked.connect(self.resetExtent)
+            
         self.dlg.show()

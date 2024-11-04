@@ -7,20 +7,8 @@
     <x>0</x>
     <y>0</y>
     <width>908</width>
-    <height>639</height>
+    <height>604</height>
    </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>908</width>
-    <height>639</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>908</width>
-    <height>639</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>Sentinel 2 Image Downloader</string>
@@ -33,8 +21,8 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>481</width>
-     <height>621</height>
+     <width>505</width>
+     <height>581</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -42,18 +30,6 @@
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
-   </property>
-   <property name="minimumSize">
-    <size>
-     <width>481</width>
-     <height>621</height>
-    </size>
-   </property>
-   <property name="maximumSize">
-    <size>
-     <width>481</width>
-     <height>621</height>
-    </size>
    </property>
    <property name="currentIndex">
     <number>0</number>
@@ -69,8 +45,8 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>520</y>
-       <width>450</width>
+       <y>499</y>
+       <width>481</width>
        <height>51</height>
       </rect>
      </property>
@@ -90,7 +66,7 @@
       <rect>
        <x>10</x>
        <y>10</y>
-       <width>450</width>
+       <width>481</width>
        <height>241</height>
       </rect>
      </property>
@@ -106,7 +82,7 @@
      <widget class="QDoubleSpinBox" name="sb_extent_maxy">
       <property name="geometry">
        <rect>
-        <x>130</x>
+        <x>150</x>
         <y>22</y>
         <width>180</width>
         <height>20</height>
@@ -125,7 +101,7 @@
      <widget class="QDoubleSpinBox" name="sb_extent_maxx">
       <property name="geometry">
        <rect>
-        <x>260</x>
+        <x>290</x>
         <y>60</y>
         <width>180</width>
         <height>20</height>
@@ -163,7 +139,7 @@
      <widget class="QDoubleSpinBox" name="sb_extent_miny">
       <property name="geometry">
        <rect>
-        <x>130</x>
+        <x>150</x>
         <y>100</y>
         <width>180</width>
         <height>20</height>
@@ -182,9 +158,9 @@
      <widget class="QComboBox" name="cb_layers">
       <property name="geometry">
        <rect>
-        <x>190</x>
+        <x>10</x>
         <y>150</y>
-        <width>150</width>
+        <width>261</width>
         <height>25</height>
        </rect>
       </property>
@@ -192,9 +168,9 @@
      <widget class="QPushButton" name="btn_canvasExtent">
       <property name="geometry">
        <rect>
-        <x>9</x>
+        <x>287</x>
         <y>150</y>
-        <width>150</width>
+        <width>120</width>
         <height>25</height>
        </rect>
       </property>
@@ -205,11 +181,14 @@
      <widget class="QToolButton" name="tbtn_draw">
       <property name="geometry">
        <rect>
-        <x>360</x>
+        <x>420</x>
         <y>150</y>
         <width>51</width>
         <height>25</height>
        </rect>
+      </property>
+      <property name="toolTip">
+       <string>Draw Extent</string>
       </property>
       <property name="text">
        <string>...</string>
@@ -218,10 +197,10 @@
      <widget class="QPushButton" name="btn_layerextent">
       <property name="geometry">
        <rect>
-        <x>190</x>
+        <x>10</x>
         <y>180</y>
-        <width>151</width>
-        <height>23</height>
+        <width>261</width>
+        <height>28</height>
        </rect>
       </property>
       <property name="text">
@@ -232,13 +211,36 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>210</y>
-        <width>431</width>
-        <height>21</height>
+        <y>97</y>
+        <width>120</width>
+        <height>29</height>
        </rect>
       </property>
       <property name="text">
        <string/>
+      </property>
+     </widget>
+     <widget class="QLabel" name="lbl_no_feats">
+      <property name="geometry">
+       <rect>
+        <x>266</x>
+        <y>209</y>
+        <width>201</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <italic>true</italic>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
       </property>
      </widget>
     </widget>
@@ -246,8 +248,8 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>410</y>
-       <width>450</width>
+       <y>400</y>
+       <width>481</width>
        <height>91</height>
       </rect>
      </property>
@@ -271,7 +273,7 @@
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>401</width>
+        <width>421</width>
         <height>24</height>
        </rect>
       </property>
@@ -288,7 +290,7 @@
      <widget class="QToolButton" name="btn_browse">
       <property name="geometry">
        <rect>
-        <x>416</x>
+        <x>440</x>
         <y>30</y>
         <width>29</width>
         <height>24</height>
@@ -303,7 +305,7 @@
        <rect>
         <x>10</x>
         <y>60</y>
-        <width>211</width>
+        <width>231</width>
         <height>21</height>
        </rect>
       </property>
@@ -314,11 +316,14 @@
      <widget class="QCheckBox" name="cb_add_to_layer">
       <property name="geometry">
        <rect>
-        <x>230</x>
+        <x>290</x>
         <y>56</y>
-        <width>211</width>
+        <width>181</width>
         <height>31</height>
        </rect>
+      </property>
+      <property name="layoutDirection">
+       <enum>Qt::LeftToRight</enum>
       </property>
       <property name="text">
        <string>Add footprint layer to map</string>
@@ -330,8 +335,8 @@
       <rect>
        <x>10</x>
        <y>260</y>
-       <width>451</width>
-       <height>141</height>
+       <width>481</width>
+       <height>131</height>
       </rect>
      </property>
      <property name="font">
@@ -346,9 +351,9 @@
      <widget class="QLabel" name="lbl_message">
       <property name="geometry">
        <rect>
-        <x>10</x>
-        <y>110</y>
-        <width>431</width>
+        <x>6</x>
+        <y>104</y>
+        <width>451</width>
         <height>21</height>
        </rect>
       </property>
@@ -361,7 +366,7 @@
        <rect>
         <x>7</x>
         <y>20</y>
-        <width>431</width>
+        <width>461</width>
         <height>82</height>
        </rect>
       </property>
@@ -521,6 +526,22 @@
       </layout>
      </widget>
     </widget>
+    <widget class="QCheckBox" name="cb_feat_bounds">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>21</x>
+       <y>218</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Use features of layer for query</string>
+     </property>
+    </widget>
    </widget>
    <widget class="QWidget" name="images">
     <attribute name="title">
@@ -531,7 +552,7 @@
       <rect>
        <x>10</x>
        <y>10</y>
-       <width>450</width>
+       <width>481</width>
        <height>161</height>
       </rect>
      </property>
@@ -549,7 +570,7 @@
        <rect>
         <x>10</x>
         <y>70</y>
-        <width>430</width>
+        <width>426</width>
         <height>30</height>
        </rect>
       </property>
@@ -562,7 +583,7 @@
        <rect>
         <x>10</x>
         <y>110</y>
-        <width>241</width>
+        <width>181</width>
         <height>41</height>
        </rect>
       </property>
@@ -586,9 +607,9 @@
      <widget class="QLabel" name="lbl_message_6">
       <property name="geometry">
        <rect>
-        <x>270</x>
+        <x>240</x>
         <y>120</y>
-        <width>171</width>
+        <width>191</width>
         <height>21</height>
        </rect>
       </property>
@@ -604,15 +625,15 @@
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>210</width>
+        <width>205</width>
         <height>25</height>
        </rect>
       </property>
       <property name="text">
-       <string/>
+       <string>autoalert20@gmail.com</string>
       </property>
       <property name="placeholderText">
-       <string>Username</string>
+       <string>Email</string>
       </property>
      </widget>
      <widget class="QLineEdit" name="le_password">
@@ -620,12 +641,12 @@
        <rect>
         <x>230</x>
         <y>30</y>
-        <width>181</width>
+        <width>205</width>
         <height>25</height>
        </rect>
       </property>
       <property name="text">
-       <string/>
+       <string>$Mrt.030713$</string>
       </property>
       <property name="echoMode">
        <enum>QLineEdit::Password</enum>
@@ -637,14 +658,14 @@
      <widget class="QLabel" name="lbl_img">
       <property name="geometry">
        <rect>
-        <x>416</x>
-        <y>30</y>
-        <width>31</width>
-        <height>21</height>
+        <x>448</x>
+        <y>29</y>
+        <width>28</width>
+        <height>28</height>
        </rect>
       </property>
       <property name="text">
-       <string/>
+       <string>www</string>
       </property>
      </widget>
     </widget>
@@ -652,8 +673,8 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>305</y>
-       <width>450</width>
+       <y>280</y>
+       <width>481</width>
        <height>91</height>
       </rect>
      </property>
@@ -677,7 +698,7 @@
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>401</width>
+        <width>418</width>
         <height>24</height>
        </rect>
       </property>
@@ -694,7 +715,7 @@
      <widget class="QToolButton" name="btn_browse_2">
       <property name="geometry">
        <rect>
-        <x>416</x>
+        <x>437</x>
         <y>30</y>
         <width>29</width>
         <height>24</height>
@@ -722,8 +743,8 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>190</y>
-       <width>450</width>
+       <y>180</y>
+       <width>481</width>
        <height>91</height>
       </rect>
      </property>
@@ -740,14 +761,14 @@
       </font>
      </property>
      <property name="title">
-      <string>Input Footprint File (GPKG)</string>
+      <string>Input Footprint File(s) (GPKG)</string>
      </property>
      <widget class="QLineEdit" name="le_inputfile">
       <property name="geometry">
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>401</width>
+        <width>418</width>
         <height>24</height>
        </rect>
       </property>
@@ -764,7 +785,7 @@
      <widget class="QToolButton" name="btn_browse_3">
       <property name="geometry">
        <rect>
-        <x>416</x>
+        <x>437</x>
         <y>30</y>
         <width>29</width>
         <height>24</height>
@@ -779,7 +800,7 @@
        <rect>
         <x>10</x>
         <y>60</y>
-        <width>431</width>
+        <width>221</width>
         <height>21</height>
        </rect>
       </property>
@@ -795,9 +816,9 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>540</y>
-       <width>451</width>
-       <height>41</height>
+       <y>380</y>
+       <width>391</width>
+       <height>50</height>
       </rect>
      </property>
      <property name="font">
@@ -811,168 +832,16 @@
       <string>Download Images</string>
      </property>
     </widget>
-    <widget class="QGroupBox" name="groupBox_7">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>410</y>
-       <width>131</width>
-       <height>91</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <weight>75</weight>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="title">
-      <string>Zip Extraction</string>
-     </property>
-     <widget class="QCheckBox" name="cb_extract_files">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>30</y>
-        <width>111</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Extract files</string>
-      </property>
-     </widget>
-     <widget class="QCheckBox" name="cb_delete_zip_file">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>60</y>
-        <width>111</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Delete zip file</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QGroupBox" name="groupBox_8">
-     <property name="geometry">
-      <rect>
-       <x>150</x>
-       <y>410</y>
-       <width>111</width>
-       <height>91</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <weight>75</weight>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="title">
-      <string>Create Indices</string>
-     </property>
-     <widget class="QCheckBox" name="cb_ndvi">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>30</y>
-        <width>70</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="toolTip">
-       <string>Normalized Difference Vegetation Index</string>
-      </property>
-      <property name="statusTip">
-       <string/>
-      </property>
-      <property name="whatsThis">
-       <string/>
-      </property>
-      <property name="text">
-       <string>NDVI</string>
-      </property>
-     </widget>
-     <widget class="QCheckBox" name="cb_ndwi">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>60</y>
-        <width>70</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="toolTip">
-       <string>Normalized Difference Water Index</string>
-      </property>
-      <property name="text">
-       <string>NDWI</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QGroupBox" name="groupBox_9">
-     <property name="geometry">
-      <rect>
-       <x>270</x>
-       <y>410</y>
-       <width>191</width>
-       <height>91</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <weight>75</weight>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="title">
-      <string>Clip</string>
-     </property>
-     <widget class="QCheckBox" name="cb_clip">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>30</y>
-        <width>161</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Clip by extent as VRT</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QCheckBox" name="cb_ql">
+    <widget class="QPushButton" name="pb_indices">
      <property name="enabled">
       <bool>true</bool>
      </property>
      <property name="geometry">
       <rect>
-       <x>10</x>
-       <y>510</y>
-       <width>451</width>
-       <height>21</height>
+       <x>410</x>
+       <y>380</y>
+       <width>81</width>
+       <height>50</height>
       </rect>
      </property>
      <property name="font">
@@ -982,7 +851,46 @@
       </font>
      </property>
      <property name="text">
-      <string>Download only quicklook file (jpg)</string>
+      <string>OPTIONS</string>
+     </property>
+    </widget>
+    <widget class="QPlainTextEdit" name="pe_summary">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>454</y>
+       <width>481</width>
+       <height>91</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <weight>50</weight>
+       <bold>false</bold>
+      </font>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>430</y>
+       <width>181</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>8</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Download List</string>
      </property>
     </widget>
    </widget>
@@ -990,13 +898,61 @@
   <widget class="QPlainTextEdit" name="pe_log">
    <property name="geometry">
     <rect>
-     <x>501</x>
+     <x>520</x>
      <y>33</y>
-     <width>398</width>
-     <height>596</height>
+     <width>381</width>
+     <height>511</height>
     </rect>
    </property>
    <property name="readOnly">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btn_clearLogs">
+   <property name="geometry">
+    <rect>
+     <x>520</x>
+     <y>550</y>
+     <width>381</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Clear Logs</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="lbl_info">
+   <property name="geometry">
+    <rect>
+     <x>490</x>
+     <y>8</y>
+     <width>25</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="toolTip">
+    <string>https://dataspace.copernicus.eu</string>
+   </property>
+   <property name="text">
+    <string>i</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+   <property name="openExternalLinks">
     <bool>true</bool>
    </property>
   </widget>
