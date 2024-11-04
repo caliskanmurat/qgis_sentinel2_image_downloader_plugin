@@ -630,7 +630,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>autoalert20@gmail.com</string>
+       <string></string>
       </property>
       <property name="placeholderText">
        <string>Email</string>
@@ -646,7 +646,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>$Mrt.030713$</string>
+       <string></string>
       </property>
       <property name="echoMode">
        <enum>QLineEdit::Password</enum>
