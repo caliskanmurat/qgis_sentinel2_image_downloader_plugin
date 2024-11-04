@@ -8,7 +8,9 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <i>Download Footprints</i> section is first part of the analysis. In this section a <i><b>Geopackage (GPKG)</b></i> file is created. This file contains informations about the images to be downloaded such as "prod_id, prod_identifier, prod_download_url, cloudcover, processingdate, area_km". Images that are not desired to be downloaded should be deleted from the attribute table of the GPKG file.<br/><br/>
 
 <b>Query Area:</b> The extent of area of interest is selected here. Multiple options are available for to select _Query Area_:<br/>
-
+- _Canvas Extent_ : Extent of current canvas is used for query,
+- _Drawing Manually From the Map_ : Extent of query area is drawed manually,
+- _Layer Extent_ : 
 
 
 
