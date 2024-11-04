@@ -11,10 +11,10 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/><br/>
 
-<b>Query Area:</b> The extent of area of interest is selected here. Multiple options are available for to select _Query Area_:<br/>
+<b>Query Area:</b> The extent of area of interest is selected here. Multiple options are available to select _Query Area_:<br/>
 - <ins>_Canvas Extent_</ins> : Extent of current canvas is used for query,
-- <ins> _Drawing Manually From the Map_</ins> : Extent of query area is drawed manually,
-- <ins> _Layer Extent_</ins> : Extent of layer is used for query. If **_Use features of layer for query_** option is selected, features of the selected layer is used for query. _Polygon, Point, Polyline_ data are available.
+- <ins> _Drawing Manually From the Map_</ins> : Extent of query area is drawned manually on the canvas,
+- <ins> _Layer Extent_</ins> : Extent of selected layer is used for query. If **_Use features of layer for query_** option is selected, features of the selected layer is used for query. _Polygon, Point, Polyline_ data are available.
 
 <br/>
 
