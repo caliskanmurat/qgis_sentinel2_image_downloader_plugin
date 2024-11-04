@@ -22,7 +22,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Output Folder:</b> Folder where the footprint files will be created in is specified here.
+<b>Output Folder:</b> Folder for files to be downloaded is specified here.
 
 <br/><br/>
 
@@ -41,11 +41,11 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Output Folder:</b> Folder for files to be download is specified here.
+<b>Output Folder:</b> Folder for files to be downloaded is specified here.
 
 <br/>
 
-<b>OPTIONS:</b> Some extra options about download process can be configure in his section. Detailed explanation is below.
+<b>OPTIONS:</b> Some extra options about download process can be configured in his section. Detailed explanation is below.
 
 <br/>
 
