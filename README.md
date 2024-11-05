@@ -45,7 +45,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>OPTIONS:</b> Some extra options about download process can be configured in his section. Detailed explanation is below.
+<b>OPTIONS:</b> Some extra options about download process can be configured in this section. Detailed explanation is below.
 
 <br/>
 
