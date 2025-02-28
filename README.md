@@ -24,6 +24,12 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <b>Output Folder:</b> Folder for files to be downloaded is specified here.
 
+<br/>
+
+<b>Out File Name (GPKG):</b> Name of the GPKG file for image footprints can be speficified here. If not speficied, a default name is determined.
+
+<br/>
+
 <br/><br/>
 
 ### 2-) Download Images
