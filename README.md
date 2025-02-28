@@ -71,8 +71,18 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Clip and Merge:</b> Downloaded images can be merged as VRT file based on _date, zone number and product type_ (e.g. _merged_vrt\20241102\z35\MSIL2A_). Also images can be clipped using query extent.
+<b>Merge:</b> Downloaded images can be merged as VRT file based on _date, zone number and product type_ (e.g. _merged_vrt\20241102\z35\MSIL2A_).
 
 <br/>
 
 <b>Other:</b> Beside downloading individual bands, _"raw zip file"_ and _"quicklook file of the image"_ also can be download by selecting this option.
+
+<br/>
+
+<b>Multiply by 100:</b> If this option is selected, the result of indices are calculated by 100 and saved as integer instead of float. In this way, size of the image is reduced. For instance; if value of NDVI is 0.2346468 this value is saved as 23.
+
+<br/>
+
+<b>Compression:</b> Compression method for saving indices can be selected here.
+
+<br/>
