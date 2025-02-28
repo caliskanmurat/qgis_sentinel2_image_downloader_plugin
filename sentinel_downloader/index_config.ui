@@ -6,42 +6,31 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>752</width>
-    <height>571</height>
+    <width>867</width>
+    <height>581</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>867</width>
+    <height>581</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>867</width>
+    <height>581</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Indices</string>
   </property>
-  <widget class="QLabel" name="label">
-   <property name="geometry">
-    <rect>
-     <x>8</x>
-     <y>497</y>
-     <width>721</width>
-     <height>30</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <weight>75</weight>
-     <italic>true</italic>
-     <bold>true</bold>
-    </font>
-   </property>
-   <property name="text">
-    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;* Result of indices are multiplied by 100 and images are saved in integer type to decrease the size.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-   </property>
-   <property name="wordWrap">
-    <bool>true</bool>
-   </property>
-  </widget>
   <widget class="QGroupBox" name="groupBox">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>5</y>
-     <width>321</width>
+     <width>361</width>
      <height>491</height>
     </rect>
    </property>
@@ -59,7 +48,7 @@
      <rect>
       <x>20</x>
       <y>30</y>
-      <width>281</width>
+      <width>318</width>
       <height>441</height>
      </rect>
     </property>
@@ -189,9 +178,9 @@
   <widget class="QGroupBox" name="groupBox_2">
    <property name="geometry">
     <rect>
-     <x>340</x>
+     <x>380</x>
      <y>5</y>
-     <width>401</width>
+     <width>461</width>
      <height>381</height>
     </rect>
    </property>
@@ -209,7 +198,7 @@
      <rect>
       <x>10</x>
       <y>31</y>
-      <width>381</width>
+      <width>432</width>
       <height>339</height>
      </rect>
     </property>
@@ -451,9 +440,9 @@
   <widget class="QGroupBox" name="groupBox_3">
    <property name="geometry">
     <rect>
-     <x>340</x>
+     <x>380</x>
      <y>395</y>
-     <width>231</width>
+     <width>461</width>
      <height>100</height>
     </rect>
    </property>
@@ -473,8 +462,8 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>27</y>
-      <width>221</width>
+      <y>60</y>
+      <width>231</width>
       <height>21</height>
      </rect>
     </property>
@@ -485,7 +474,7 @@
      </font>
     </property>
     <property name="text">
-     <string>Download only quicklook file (.jpg)</string>
+     <string>Download only quicklook file</string>
     </property>
    </widget>
    <widget class="QCheckBox" name="cb_raw">
@@ -495,8 +484,8 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>57</y>
-      <width>181</width>
+      <y>30</y>
+      <width>231</width>
       <height>21</height>
      </rect>
     </property>
@@ -510,55 +499,14 @@
      <string>Download raw file (.zip)</string>
     </property>
    </widget>
-  </widget>
-  <widget class="QGroupBox" name="groupBox_9">
-   <property name="geometry">
-    <rect>
-     <x>580</x>
-     <y>395</y>
-     <width>161</width>
-     <height>100</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <weight>75</weight>
-     <bold>true</bold>
-    </font>
-   </property>
-   <property name="title">
-    <string>Clip and Merge</string>
-   </property>
-   <widget class="QCheckBox" name="cb_clip">
-    <property name="enabled">
-     <bool>true</bool>
-    </property>
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>57</y>
-      <width>171</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <weight>75</weight>
-      <bold>true</bold>
-     </font>
-    </property>
-    <property name="text">
-     <string>Clip by extent as VRT</string>
-    </property>
-   </widget>
    <widget class="QCheckBox" name="cb_merge">
     <property name="enabled">
      <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>27</y>
+      <x>280</x>
+      <y>30</y>
       <width>121</width>
       <height>21</height>
      </rect>
@@ -580,8 +528,8 @@
   <widget class="QPushButton" name="btn_clearAll">
    <property name="geometry">
     <rect>
-     <x>620</x>
-     <y>530</y>
+     <x>720</x>
+     <y>540</y>
      <width>121</width>
      <height>31</height>
     </rect>
@@ -593,8 +541,8 @@
   <widget class="QPushButton" name="btn_closeIndex">
    <property name="geometry">
     <rect>
-     <x>490</x>
-     <y>530</y>
+     <x>590</x>
+     <y>540</y>
      <width>121</width>
      <height>31</height>
     </rect>
@@ -602,6 +550,95 @@
    <property name="text">
     <string>OK</string>
    </property>
+  </widget>
+  <widget class="QCheckBox" name="cb_multiply">
+   <property name="geometry">
+    <rect>
+     <x>15</x>
+     <y>500</y>
+     <width>661</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="text">
+    <string>Multiply the result of indices by 100 and save images as integer type to decrease the size.</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="layoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>15</x>
+     <y>528</y>
+     <width>364</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout_2">
+    <item row="0" column="1">
+     <widget class="QRadioButton" name="rb_deflate">
+      <property name="font">
+       <font>
+        <weight>50</weight>
+        <bold>false</bold>
+        <kerning>true</kerning>
+       </font>
+      </property>
+      <property name="text">
+       <string>DEFLATE</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Compression (indices) : </string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="2">
+     <widget class="QRadioButton" name="rb_lzw">
+      <property name="font">
+       <font>
+        <weight>50</weight>
+        <bold>false</bold>
+        <kerning>true</kerning>
+       </font>
+      </property>
+      <property name="text">
+       <string>LZW</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="3">
+     <widget class="QRadioButton" name="rb_nocomp">
+      <property name="font">
+       <font>
+        <weight>50</weight>
+        <bold>false</bold>
+        <kerning>true</kerning>
+       </font>
+      </property>
+      <property name="text">
+       <string>None</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
   </widget>
  </widget>
  <resources/>

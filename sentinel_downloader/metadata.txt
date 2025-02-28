@@ -6,7 +6,7 @@
 name=Sentinel 2 Image Downloader
 qgisMinimumVersion=3.0
 description=This plugin allows users to download Sentinel-2 images.	
-version=2.0
+version=2.1
 author=Murat Çalışkan
 email=caliskan.murat.20@gmail.com
 
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python, image, ndvi, ndwi, sentinel, remote, sensing, vegetation
+tags=python, image, raster, ndvi, ndwi, nbr, sentinel, remote, sensing, vegetation, copernicus
 
 homepage=https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin
 category=Plugins

@@ -7,8 +7,20 @@
     <x>0</x>
     <y>0</y>
     <width>908</width>
-    <height>604</height>
+    <height>608</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>908</width>
+    <height>608</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>908</width>
+    <height>608</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Sentinel 2 Image Downloader</string>
@@ -30,6 +42,18 @@
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>505</width>
+     <height>581</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>505</width>
+     <height>581</height>
+    </size>
    </property>
    <property name="currentIndex">
     <number>0</number>
@@ -327,6 +351,28 @@
       </property>
       <property name="text">
        <string>Add footprint layer to map</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="le_outFileName">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>60</y>
+        <width>251</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="maxLength">
+       <number>255</number>
+      </property>
+      <property name="frame">
+       <bool>true</bool>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+      </property>
+      <property name="placeholderText">
+       <string>Output File Name (e.g. footprints)</string>
       </property>
      </widget>
     </widget>
@@ -630,7 +676,7 @@
        </rect>
       </property>
       <property name="text">
-       <string></string>
+       <string/>
       </property>
       <property name="placeholderText">
        <string>Email</string>
@@ -646,7 +692,7 @@
        </rect>
       </property>
       <property name="text">
-       <string></string>
+       <string/>
       </property>
       <property name="echoMode">
        <enum>QLineEdit::Password</enum>
@@ -899,9 +945,9 @@
    <property name="geometry">
     <rect>
      <x>520</x>
-     <y>33</y>
+     <y>34</y>
      <width>381</width>
-     <height>511</height>
+     <height>481</height>
     </rect>
    </property>
    <property name="readOnly">
@@ -956,7 +1002,65 @@
     <bool>true</bool>
    </property>
   </widget>
+  <widget class="QProgressBar" name="pb_download">
+   <property name="geometry">
+    <rect>
+     <x>520</x>
+     <y>520</y>
+     <width>378</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="value">
+    <number>0</number>
+   </property>
+   <property name="textVisible">
+    <bool>true</bool>
+   </property>
+   <property name="format">
+    <string>%p%</string>
+   </property>
+  </widget>
  </widget>
+ <tabstops>
+  <tabstop>sb_extent_maxy</tabstop>
+  <tabstop>sb_extent_minx</tabstop>
+  <tabstop>sb_extent_maxx</tabstop>
+  <tabstop>sb_extent_miny</tabstop>
+  <tabstop>cb_layers</tabstop>
+  <tabstop>btn_layerextent</tabstop>
+  <tabstop>cb_feat_bounds</tabstop>
+  <tabstop>sb_cloud</tabstop>
+  <tabstop>cb_producttype</tabstop>
+  <tabstop>dt_startDate</tabstop>
+  <tabstop>dt_endDate</tabstop>
+  <tabstop>le_outputFolder</tabstop>
+  <tabstop>btn_browse</tabstop>
+  <tabstop>le_outFileName</tabstop>
+  <tabstop>cb_add_to_layer</tabstop>
+  <tabstop>btn_execute</tabstop>
+  <tabstop>le_username</tabstop>
+  <tabstop>le_password</tabstop>
+  <tabstop>btn_checkcreds</tabstop>
+  <tabstop>le_inputfile</tabstop>
+  <tabstop>btn_browse_3</tabstop>
+  <tabstop>le_outputFolder_2</tabstop>
+  <tabstop>btn_browse_2</tabstop>
+  <tabstop>btn_execute_2</tabstop>
+  <tabstop>pb_indices</tabstop>
+  <tabstop>pe_summary</tabstop>
+  <tabstop>tbtn_draw</tabstop>
+  <tabstop>pe_log</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>btn_canvasExtent</tabstop>
+  <tabstop>btn_clearLogs</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

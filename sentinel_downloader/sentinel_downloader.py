@@ -40,7 +40,7 @@ from pyproj import CRS, Transformer
 from shapely.wkt import loads
 from shapely.ops import transform
 from datetime import datetime, timedelta, date
-import requests, time, os
+import requests, os
 from glob import glob
 import numpy as np
 from shapely.geometry import shape
@@ -208,8 +208,35 @@ class DownloadSentinel:
         
         if object_name == "btn_browse":        
             self.dlg.le_outputFolder.setText("")
+            self.dlg.le_outFileName.setText("")
+            
+            startDate = self.dlg.dt_startDate.dateTime().toPyDateTime().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            end_date_ = self.dlg.dt_endDate.dateTime().toPyDateTime()
+            endDate = (end_date_ + timedelta(days=1) - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                        
+            sd = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
+            ed = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
+            
+            cloud = int(self.dlg.sb_cloud.value())
+            producttype = self.dlg.cb_producttype.currentText()
+            
             output_dir = QFileDialog.getExistingDirectory(None, 'Open working directory', "", QFileDialog.ShowDirsOnly)
             self.dlg.le_outputFolder.setText(output_dir)
+            outFolderPath = self.dlg.le_outputFolder.text()
+            
+            out_name_ = f""" footprints_{sd}_{ed}_{cloud}_{producttype} """.strip()
+            if not os.path.isfile(fr"{outFolderPath}/{out_name_}.gpkg"):
+                out_name = out_name_
+            else:
+                n = 2
+                while True:
+                    out_name = out_name_ + "_" + str(n)
+                    if not os.path.isfile(fr"{outFolderPath}/{out_name}.gpkg"):
+                        break
+                    else:
+                        n += 1
+            
+            self.dlg.le_outFileName.setText(out_name)
         
         elif object_name == "btn_browse_2":        
             self.dlg.le_outputFolder_2.setText("")
@@ -230,7 +257,7 @@ class DownloadSentinel:
         if env:
             return proj_geom.GetEnvelope()
         else:
-            return proj_geom    
+            return proj_geom
     
     def createGPKG(self, products_all, outfile, driver_name = "GPKG"):
         driver = ogr.GetDriverByName(driver_name)
@@ -405,6 +432,15 @@ class DownloadSentinel:
         
         self.dlg.btn_execute.setEnabled(all((self.dateCheck, self.extentCheck, self.folderCheck)))
     
+    def tabChange(self):
+        if self.dlg.tabWidget.currentIndex() == 0:
+            self.dlg.pb_download.setVisible(False)
+            self.dlg.pe_log.resize(381, 504)
+            
+        else:
+            self.dlg.pb_download.setVisible(True)
+            self.dlg.pe_log.resize(381, 481)
+    
     def checkDates(self):
         enabled = []
         if self.dlg.dt_endDate.dateTime().toPyDateTime() < self.dlg.dt_startDate.dateTime().toPyDateTime():
@@ -442,11 +478,21 @@ class DownloadSentinel:
         self.dlg.processEvents()       
     
     def array2raster(self, out_raster_path, geotransform, srs_wkt, band_infos, dtype):
+        if os.path.isfile(out_raster_path):
+            self.createLog("Skipping... File already exists.")
+            return
+        
+        if not self.dlg2.rb_nocomp.isChecked():
+            compression = "DEFLATE" if self.dlg2.rb_deflate.isChecked() else "LZW"
+            opt = [f'COMPRESS={compression}']
+        else:
+            opt = []
+        
         cols = band_infos[0][1].shape[1]
         rows = band_infos[0][1].shape[0]
     
         driver = gdal.GetDriverByName('GTiff')
-        outRaster = driver.Create(out_raster_path, cols, rows, len(band_infos), dtype, options=['COMPRESS=DEFLATE'])
+        outRaster = driver.Create(out_raster_path, cols, rows, len(band_infos), dtype, options=opt)
         outRaster.SetGeoTransform(geotransform)
         outRaster.SetProjection(srs_wkt)
         
@@ -542,6 +588,7 @@ class DownloadSentinel:
             product_list.append(attributes)
         
         df = pd.DataFrame(product_list)
+        
         try:
             df["cloudCover"] = df["cloudCover"].round(2)
         except:
@@ -565,7 +612,8 @@ class DownloadSentinel:
     
     def executeFootprints(self):        
         self.dlg.btn_execute.setText("Running...")
-        self.dlg.processEvents() 
+        self.dlg.pb_download.setValue(0)
+        self.dlg.processEvents()
         
         wkt_list_download = []
         if self.dlg.cb_feat_bounds.isChecked():
@@ -614,11 +662,19 @@ class DownloadSentinel:
         offset_lists = []
         for we, wkt in enumerate(wkt_list):
             total = self.getData(wkt, startDate, endDate, limit, offset=0, total_results=True, cloud=cloud, producttype=producttype)
-            if total > 0:
-                wkt_list_download.append(wkt_list[we])
-                total_results += total
-            offset_lists.append(np.arange(0, total_results, limit))
             
+            if isinstance(total, str):
+                message = f"{total} - {wkt}"
+                self.createLog(message)
+                
+            else:
+                if total > 0:
+                    message = f"{we+1} - {total} features"
+                    self.createLog(message)
+                    
+                    wkt_list_download.append(wkt_list[we])
+                    total_results += total
+                    offset_lists.append(np.arange(0, total, limit))
         
         if isinstance(total_results, str):
             message = f"total_results couldn't retrieve - {total_results}"
@@ -636,9 +692,9 @@ class DownloadSentinel:
                     self.createLog("Creating footprints...") 
                     
                     products_all = pd.DataFrame()
-                    for wkt, offset_list in zip(wkt_list_download, offset_lists):
+                    for en, (wkt, offset_list) in enumerate(zip(wkt_list_download, offset_lists), 1):
                         for i, o in enumerate(offset_list, 1):
-                            self.createLog(f"{i} / {len(offset_list)}")
+                            self.createLog(f"{en} -- {i} / {len(offset_list)}")
                             products = self.getData(wkt, startDate, endDate, limit, offset=o, total_results=False, cloud=cloud, producttype=producttype)
                             
                             if isinstance(products, str):
@@ -648,17 +704,12 @@ class DownloadSentinel:
                                 df = self.getProducts(products)
                                 df["query_wkt"] = wkt
                                 
-                                products_all = pd.concat([products_all, df], axis=0)
-                                time.sleep(5)
+                                products_all = pd.concat([products_all, df], axis=0)                
                     
+                    products_all = products_all.drop_duplicates(subset="prod_id")         
                     
-                    products_all = products_all.drop_duplicates(subset="prod_id")
+                    out_name = self.dlg.le_outFileName.text()
                     
-                    sd = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
-                    ed = datetime.strptime(endDate, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y%m%d")
-                    
-                    out_name = f""" footprints_{sd}_{ed}_{cloud}_{producttype} """.strip()
-                                      
                     self.createGPKG(products_all, fr"{outFolderPath}/{out_name}.gpkg", driver_name = "GPKG")                    
                     self.createLog(fr"Exported to {outFolderPath}/{out_name}.gpkg")
                     
@@ -695,19 +746,28 @@ class DownloadSentinel:
     def downloadImage(self, url, name, download_type, band_name=None):
         if download_type == "ql":
             outpath = fr"{self.dlg.le_outputFolder_2.text()}\{name}_ql.jpg"
-            self.createLog(f"{name}")
+            if os.path.isfile(outpath):
+                self.createLog(f"{name} - Skipping... File already exists.")
+                return
+            else:
+                self.createLog(f"{name}")
             
         elif download_type == "raw":
             outpath = fr"{self.dlg.le_outputFolder_2.text()}\{name}.zip"
-            self.createLog(f"{name}")
+            if os.path.isfile(outpath):
+                self.createLog(f"{name} - Skipping... File already exists.")
+                return
+            else:
+                self.createLog(f"{name}")
             
         elif download_type == "band":
             out_folder_path = fr"{self.dlg.le_outputFolder_2.text()}\{name}"
             outpath = fr"{out_folder_path}\{band_name}"
             self.createLog(f"{band_name}")
+            
             if not os.path.isdir(out_folder_path):
                 os.makedirs(out_folder_path)
-               
+                               
         session = requests.Session()
         if self.bear is None:
             self.bear = self.get_access_token()
@@ -816,14 +876,16 @@ class DownloadSentinel:
                         b_name = self.bands_map[cb_name]
                         f_name, b_url = bands.get(b_name, [None,None])
                         if f_name:
-                            self.downloadImage(b_url, prod_identifier, "band", band_name=f_name)
+                            outpath = fr"{self.dlg.le_outputFolder_2.text()}\{prod_identifier}\{f_name}"
+                            if not os.path.isfile(outpath):
+                                self.downloadImage(b_url, prod_identifier, "band", band_name=f_name)
+                            else:
+                                self.createLog(f"{f_name} - Skipping... File already exists.")                                
                 
                 message = "Bands Downloaded"
                             
             else:
                 message =  f"ERROR!!!\n - Status Code:{resp.status_code}"
-            
-                
             
         except Exception as e:
             message = f"ERROR!!!\n{str(e)}"
@@ -836,7 +898,7 @@ class DownloadSentinel:
         # self.dlg.hide()
 
     def createIndex(self, out_file_path, index_name, buf_ysize, buf_xsize, srs_wkt, geotransform, base_band_array, band_paths):
-       
+        
         if index_name == "ndvi": # (B08 - B04) / (B08 + B04)
             b4_path = band_paths[0]            
             b8_array = base_band_array[0]
@@ -844,13 +906,17 @@ class DownloadSentinel:
             b4_raster = gdal.Open(b4_path)
             b4_band = b4_raster.GetRasterBand(1)
             b4_array_ = b4_band.ReadAsArray()
-            b4_array = np.float32(np.where(b4_array_ == 0, -32768, b4_array_))
-           
-            ndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b4_array), np.add(b8_array, b4_array)))
-            ndvi_array = np.where((b4_array == -32768) | (b8_array == -32768), -32768, ndvi_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndvi_array, -32768)], gdal.GDT_Int16)
-                                   
+            b4_array = np.float32(np.where(b4_array_ == 0, self.min_dtype_int, b4_array_))
+            
+            if self.multiply_by_100:
+                ndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b4_array), np.add(b8_array, b4_array)))
+                ndvi_array = np.where((b4_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, ndvi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndvi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:         
+                ndvi_array_ = np.divide(np.subtract(b8_array, b4_array), np.add(b8_array, b4_array))
+                ndvi_array = np.where((b4_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, ndvi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndvi_array, self.min_dtype_float)], gdal.GDT_Float32)
+                
             message = "NDVI created."
             self.createLog(message)
             
@@ -859,11 +925,15 @@ class DownloadSentinel:
             b3_array = base_band_array[0]            
             b8_array = base_band_array[1]
            
-            ndwi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b8_array), np.add(b3_array, b8_array)))
-            ndwi_array = np.where((b3_array == -32768) | (b8_array == -32768), -32768, ndwi_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndwi_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                ndwi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b8_array), np.add(b3_array, b8_array)))
+                ndwi_array = np.where((b3_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, ndwi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndwi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                ndwi_array_ = np.divide(np.subtract(b3_array, b8_array), np.add(b3_array, b8_array))
+                ndwi_array = np.where((b3_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, ndwi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndwi_array, self.min_dtype_float)], gdal.GDT_Float32)                            
+                       
             message = "NDWI created."
             self.createLog(message)
             
@@ -872,11 +942,15 @@ class DownloadSentinel:
             b8_array = base_band_array[0]
             b11_array = base_band_array[1]
            
-            ndmi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b11_array), np.add(b8_array, b11_array)))
-            ndmi_array = np.where((b11_array == -32768) | (b8_array == -32768), -32768, ndmi_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndmi_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                ndmi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b11_array), np.add(b8_array, b11_array)))
+                ndmi_array = np.where((b11_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, ndmi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndmi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                ndmi_array_ = np.divide(np.subtract(b8_array, b11_array), np.add(b8_array, b11_array))
+                ndmi_array = np.where((b11_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, ndmi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndmi_array, self.min_dtype_float)], gdal.GDT_Float32)
+                       
             message = "NDMI created."
             self.createLog(message)
             
@@ -885,11 +959,15 @@ class DownloadSentinel:
             b3_array = base_band_array[0]
             b11_array = base_band_array[1]
            
-            ndsi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b11_array), np.add(b3_array, b11_array)))
-            ndsi_array = np.where((b11_array == -32768) | (b3_array == -32768), -32768, ndsi_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndsi_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                ndsi_array_ = np.multiply(100, np.divide(np.subtract(b3_array, b11_array), np.add(b3_array, b11_array)))
+                ndsi_array = np.where((b11_array == self.min_dtype_int) | (b3_array == self.min_dtype_int), self.min_dtype_int, ndsi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndsi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                ndsi_array_ = np.divide(np.subtract(b3_array, b11_array), np.add(b3_array, b11_array))
+                ndsi_array = np.where((b11_array == self.min_dtype_int) | (b3_array == self.min_dtype_int), self.min_dtype_float, ndsi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndsi_array, self.min_dtype_float)], gdal.GDT_Float32)
+                       
             message = "NDSI created."
             self.createLog(message)
             
@@ -898,11 +976,16 @@ class DownloadSentinel:
             b8_array = base_band_array[0]
             b11_array = base_band_array[1]
            
-            ndbi_array_ = np.multiply(100, np.divide(np.subtract(b11_array, b8_array), np.add(b11_array, b8_array)))
-            ndbi_array = np.where((b11_array == -32768) | (b8_array == -32768), -32768, ndbi_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndbi_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                ndbi_array_ = np.multiply(100, np.divide(np.subtract(b11_array, b8_array), np.add(b11_array, b8_array)))
+                ndbi_array = np.where((b11_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, ndbi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndbi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                ndbi_array_ = np.divide(np.subtract(b11_array, b8_array), np.add(b11_array, b8_array))
+                ndbi_array = np.where((b11_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, ndbi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, ndbi_array, self.min_dtype_float)], gdal.GDT_Float32)
+                
+                       
             message = "NDBI created."
             self.createLog(message)
             
@@ -916,13 +999,17 @@ class DownloadSentinel:
             b12_raster = gdal.Open(b12_path)
             b12_band = b12_raster.GetRasterBand(1)
             b12_array_ = b12_band.ReadAsArray(buf_xsize=buf_xsize, buf_ysize=buf_ysize)
-            b12_array = np.float32(np.where(b12_array_ == 0, -32768, b12_array_))
+            b12_array = np.float32(np.where(b12_array_ == 0, self.min_dtype_int, b12_array_))
            
-            nbr_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b12_array), np.add(b8_array, b12_array)))
-            nbr_array = np.where((b12_array == -32768) | (b8_array == -32768), -32768, nbr_array_)
-           
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, nbr_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                nbr_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b12_array), np.add(b8_array, b12_array)))
+                nbr_array = np.where((b12_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, nbr_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, nbr_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                nbr_array_ = np.divide(np.subtract(b8_array, b12_array), np.add(b8_array, b12_array))
+                nbr_array = np.where((b12_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, nbr_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, nbr_array, self.min_dtype_float)], gdal.GDT_Float32)    
+            
             message = "NBR created."
             self.createLog(message)
             
@@ -930,12 +1017,16 @@ class DownloadSentinel:
         elif index_name == "gndvi": # (B08 - B03) / (B08 + B03)
             b3_array = base_band_array[0]
             b8_array = base_band_array[1]
-                     
-            gndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b3_array), np.add(b8_array, b3_array)))
-            gndvi_array = np.where((b3_array == -32768) | (b8_array == -32768), -32768, gndvi_array_)
            
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, gndvi_array, -32768)], gdal.GDT_Int16)
-                                   
+            if self.multiply_by_100:
+                gndvi_array_ = np.multiply(100, np.divide(np.subtract(b8_array, b3_array), np.add(b8_array, b3_array)))
+                gndvi_array = np.where((b3_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_int, gndvi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, gndvi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                gndvi_array_ = np.divide(np.subtract(b8_array, b3_array), np.add(b8_array, b3_array))
+                gndvi_array = np.where((b3_array == self.min_dtype_int) | (b8_array == self.min_dtype_int), self.min_dtype_float, gndvi_array_)           
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, gndvi_array, self.min_dtype_float)], gdal.GDT_Float32)
+                       
             message = "GNDVI created."
             self.createLog(message)
             
@@ -950,33 +1041,44 @@ class DownloadSentinel:
             b2_raster = gdal.Open(b2_path)
             b2_band = b2_raster.GetRasterBand(1)
             b2_array_ = b2_band.ReadAsArray()
-            b2_array = np.float32(np.where(b2_array_ == 0, -32768, b2_array_))
+            b2_array = np.float32(np.where(b2_array_ == 0, self.min_dtype_int, b2_array_))
                           
             b4_raster = gdal.Open(b4_path)
             b4_band = b4_raster.GetRasterBand(1)
             b4_array_ = b4_band.ReadAsArray()
-            b4_array = np.float32(np.where(b4_array_ == 0, -32768, b4_array_))
+            b4_array = np.float32(np.where(b4_array_ == 0, self.min_dtype_int, b4_array_))
 
             nom = np.subtract(np.add(b11_array, b4_array), np.add(b8_array, b2_array))
             denom = np.add(np.add(b11_array, b4_array), np.add(b8_array, b2_array))
-
-            bsi_array_ = np.multiply(100, np.divide(nom, denom))
-            bsi_array = np.where((b4_array == -32768) | (b2_array == -32768), -32768, bsi_array_)
            
-            self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, bsi_array, -32768)], gdal.GDT_Int16)
+            if self.multiply_by_100:
+                bsi_array_ = np.multiply(100, np.divide(nom, denom))
+                bsi_array = np.where((b4_array == self.min_dtype_int) | (b2_array == self.min_dtype_int), self.min_dtype_int, bsi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, bsi_array, self.min_dtype_int)], gdal.GDT_Int16)
+            else:
+                bsi_array_ = np.divide(nom, denom)
+                bsi_array = np.where((b4_array == self.min_dtype_int) | (b2_array == self.min_dtype_int), self.min_dtype_float, bsi_array_)
+                self.array2raster(out_file_path, geotransform, srs_wkt, [(index_name, bsi_array, self.min_dtype_float)], gdal.GDT_Float32)
                                    
             message = "BSI created."
             self.createLog(message)
         
 
     def executeDownloadImages(self):
+        
+        self.dlg.pb_download.setValue(0)
+        self.dlg.processEvents()
+        
+        self.multiply_by_100 = self.dlg2.cb_multiply.isChecked()
+        self.min_dtype_float = -3.4028235e+37
+        self.min_dtype_int = -32768
+                
         d1 = [i.isChecked() for i in self.chc_bands.values()]
         d2 = [i.isChecked() for i in self.chc_other.values()]
         d = [*d1, *d2]
         if not any(d):
             QMessageBox.critical(None, "ERROR", """Nothing selected to download!""")
-            return
-        
+            return        
         
         img_paths = self.dlg.le_inputfile.text().split(";")
         total_images = 0
@@ -993,13 +1095,10 @@ class DownloadSentinel:
         
         self.createLog("DOWNLOAD STARTED")
         
-        clip_geoms = {}
-        clip_geoms2 = {}
-        
         self.dlg.btn_execute_2.setText("Running...")
-        self.dlg.processEvents() 
+        self.dlg.processEvents()
         
-        img_name_list = []
+        download_list = []
         file_paths = self.dlg.le_inputfile.text().split(";")
         for file_path in file_paths:
             data = ogr.Open(file_path)
@@ -1013,7 +1112,8 @@ class DownloadSentinel:
                     ("prod_quicklook_url" in fields),
                     ("prod_identifier" in fields),
                     ("query_wkt" in fields),
-                    ("producttype" in fields)
+                    ("producttype" in fields),
+					("tileid" in fields)
                     ]
     
             if not all(cons):
@@ -1021,322 +1121,315 @@ class DownloadSentinel:
                 return
             
             for feat in layer:
+                tile_id = feat.GetField("tileid")
+                epsg_no = "326"+tile_id[:2]
+                geom_ = feat.GetGeometryRef()
+                geom_wkt = geom_.ExportToWkt()
+                
                 prod_id = feat.GetField("prod_id")
                 prod_url = feat.GetField("prod_download_url")
                 ql_url = feat.GetField("prod_quicklook_url")
                 img_name = feat.GetField("prod_identifier")
-                query_geom_wkt = feat.GetField("query_wkt")
-                producttype = feat.GetField("producttype")
+                producttype = feat.GetField("producttype")                
                 
-                clip_geoms[img_name] = query_geom_wkt
-                
-                if self.chc_other["ql"].isChecked():
-                    try:
-                        self.downloadImage(ql_url, img_name, download_type = "ql")            
-                    except Exception as e:
-                        self.createLog(str(e))
-                
-                elif self.chc_other["raw"].isChecked():
-                    try:
-                        self.downloadImage(prod_url, img_name, download_type = "raw")
-                    except Exception as e:
-                        self.createLog(str(e))
-                
-                else:                            
-                    try:
-                        self.downloadBands(prod_id, img_name, producttype)
-                        
-                        b8_cons = [self.dlg2.cb_ndvi.isChecked(),
-                                   self.dlg2.cb_ndwi.isChecked(),
-                                   self.dlg2.cb_ndmi.isChecked(),
-                                   self.dlg2.cb_ndbi.isChecked(),
-                                   self.dlg2.cb_nbr.isChecked(),
-                                   self.dlg2.cb_gndvi.isChecked(),
-                                   self.dlg2.cb_bsi.isChecked()
-                                   ]
-                        if any(b8_cons):
-                            if producttype == "S2MSI2A":
-                                b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08_10m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08.jp2")[0]
-                               
-                            b8_raster = gdal.Open(b8_path)
-                            b8_band = b8_raster.GetRasterBand(1)
-                            b8_array_ = b8_band.ReadAsArray()
-                            b8_array = np.float32(np.where(b8_array_ == 0, -32768, b8_array_))
-                            buf_ysize, buf_xsize = b8_array.shape
-                           
-                            srs_b8 = b8_raster.GetSpatialRef()
-                            srs_wkt = srs_b8.ExportToWkt()
-                            geotransform = b8_raster.GetGeoTransform()
-                        
-                        
-                        
-                        b3_cons = [self.dlg2.cb_ndwi.isChecked(),
-                                   self.dlg2.cb_ndsi.isChecked(),
-                                   self.dlg2.cb_gndvi.isChecked()
-                                   ]
-                        if any(b3_cons):
-                            if producttype == "S2MSI2A":
-                                b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03_10m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03.jp2")[0]
-                               
-                            b3_raster = gdal.Open(b3_path)
-                            b3_band = b3_raster.GetRasterBand(1)
-                            b3_array_ = b3_band.ReadAsArray()
-                            b3_array = np.float32(np.where(b3_array_ == 0, -32768, b3_array_))
-                        
-                        
-                        b11_cons = [self.dlg2.cb_ndmi.isChecked(),
-                                   self.dlg2.cb_ndsi.isChecked(),
-                                   self.dlg2.cb_ndbi.isChecked(),
-                                   self.dlg2.cb_bsi.isChecked()
-                                   ]
-                        if any(b11_cons):
-                            if producttype == "S2MSI2A":
-                                b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11_20m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11.jp2")[0]
-                               
-                            b11_raster = gdal.Open(b11_path)
-                            b11_band = b11_raster.GetRasterBand(1)
-                            b11_array_ = b11_band.ReadAsArray(buf_xsize=buf_xsize, buf_ysize=buf_ysize)
-                            b11_array = np.float32(np.where(b11_array_ == 0, -32768, b11_array_))
-                            
-                        
-                        # -----------------------------------------------------------------------------------------
-                        
-                        
-                        if self.dlg2.cb_ndvi.isChecked():
-                            if producttype == "S2MSI2A":
-                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
-                                
-                            out_file_path = b8_path.replace("B08","ndvi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "ndvi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt, 
-                                             geotransform, 
-                                             [b8_array],
-                                             [b4_path])
-                            
-                        if self.dlg2.cb_ndwi.isChecked():
-                            out_file_path = b8_path.replace("B08","ndwi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "ndwi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b3_array, b8_array],
-                                             [])
-                            
-                        if self.dlg2.cb_ndmi.isChecked():
-                            out_file_path = b8_path.replace("B08","ndmi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "ndmi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b8_array, b11_array],
-                                             [])
-                            
-                        if self.dlg2.cb_ndsi.isChecked():
-                            out_file_path = b3_path.replace("B03","ndsi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "ndsi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b3_array, b11_array],
-                                             [])
-                            
-                        if self.dlg2.cb_ndbi.isChecked():
-                            out_file_path = b8_path.replace("B08","ndbi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "ndbi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b8_array, b11_array],
-                                             [])
-                            
-                        if self.dlg2.cb_nbr.isChecked():
-                            if producttype == "S2MSI2A":
-                                b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12_20m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12.jp2")[0]
-                                
-                            out_file_path = b8_path.replace("B08","nbr").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "nbr",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b8_array],
-                                             [b12_path])
-                            
-                        if self.dlg2.cb_gndvi.isChecked():
-                            out_file_path = b8_path.replace("B08","gndvi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "gndvi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b3_array, b8_array],
-                                             [])
-                            
-                        if self.dlg2.cb_bsi.isChecked():
-                            if producttype == "S2MSI2A":
-                                b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02_10m.jp2")[0]
-                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
-                               
-                            elif producttype == "S2MSI1C":
-                                b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02.jp2")[0]
-                                b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
-                                
-                            out_file_path = b8_path.replace("B08","bsi").replace("jp2", "tif")
-                            self.createIndex(out_file_path,
-                                             "bsi",
-                                             buf_ysize,
-                                             buf_xsize,
-                                             srs_wkt,
-                                             geotransform,
-                                             [b8_array, b11_array],
-                                             [b2_path, b4_path])
-                        
-                        
-                        img_name_list.append(img_name)
-                            
-                    
-                    except Exception as e:
-                        self.createLog(str(e))
-                        
+                download_list.append([epsg_no, geom_wkt, prod_id, prod_url, ql_url, img_name, producttype])
+        
             data.FlushCache()
             data = layer = None
             del data, layer
-            
-            self.createLog("Images Downloaded")
-            
-        if self.dlg2.cb_clip.isChecked():
-            try:
-                for img_name in img_name_list:
-                    
-                    message = "Clipping Images..."
-                    self.createLog(message)
-                        
-                    out_folder_path_clipped = fr"{self.dlg.le_outputFolder_2.text()}\clipped_vrt"
-                    
-                    flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
-                    flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
-                    flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
-                    
-                    img_dict = defaultdict(list)
         
-                    for p in flist_for_vrt:
-                        pr_id, name = p.split("\\")[-2:]
-                        pr_type = pr_id.split("_")[1]    
-                        name = os.path.split(p)[-1]
-                        name_splitted = name.split("_", maxsplit=2)
-                        
-                        zone = "z" + name_splitted[0][1:3]
-                        dt = name_splitted[1].split("T")[0]
-                        band = name_splitted[-1].split(".")[0]
-                        img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p)
-                        
-                        clip_geoms2[f"{zone}_{dt}_{pr_type}_{band}"] = clip_geoms[pr_id]
-                    
-                    for name, path_list in img_dict.items():
-                        zn, dt, pr_type = name.split("_")[:3]
-                        
-                        r = gdal.Open(path_list[0])
-                        s = r.GetSpatialRef()
-                        srs_wkt = s.ExportToWkt()
-                        
-                        geom = ogr.CreateGeometryFromWkt(clip_geoms2[name])
-                        
-                        if geom.GetGeometryName() not in ("POLYGON", "MULTIPOLYGON"):
-                            self.createLog("Clip by Extent VRT option available for only Polygon and MultiPolygon Extents")
-                            continue
-                        
-                        minx, maxx, miny, maxy = self.getTransformedGeometry(clip_geoms2[name], srs_wkt, env=True)
-                        
-                        out_folder_path = fr"{out_folder_path_clipped}\{dt}\{zn}\{pr_type}"
-                        
-                        if not os.path.isdir(out_folder_path):
-                            os.makedirs(out_folder_path)     
-                            
-                        vrt_options = gdal.BuildVRTOptions(outputBounds=(minx, miny, maxx, maxy))
-                        my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list, options=vrt_options)
-                        my_vrt.FlushCache()
-                        my_vrt = None
-                        del my_vrt
-                    
-                    self.createLog("Images Clipped as VRT.")
+        for f_row, ddd in enumerate(download_list,1):
+            self.dlg.pb_download.setValue(int(((f_row-0.5)/len(download_list))*100))
+            self.dlg.processEvents()
             
-            except Exception as e:
-                self.createLog(str(e))
+            epsg_no, geom_wkt, prod_id, prod_url, ql_url, img_name, producttype = ddd
+            
+            if self.chc_other["ql"].isChecked():
+                if os.path.isfile(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}_ql.tif"):
+                    self.createLog(f"{img_name} - Skipping... File already exists.")
+                    continue               
+                
+                try:                        
+                    self.createLog(f"{img_name}")
+                    
+                    geom = loads(geom_wkt)
+                    
+                    from_crs = CRS.from_epsg(4326)
+                    to_crs = CRS.from_epsg(int(epsg_no))
+                    
+                    transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
+                    projected = transform(transformer.transform, geom)
+                    
+                    proj_geom = ogr.CreateGeometryFromWkt(projected.wkt)
+                    
+                    minx, maxx, miny, maxy = proj_geom.GetEnvelope()
+                    
+                    response = requests.get(ql_url)
+                    if response.status_code == 200:    
+                        f = response.content
+                        
+                        vsipath = '/vsimem/img.jpg'
+                        gdal.FileFromMemBuffer(vsipath, f)
+                        ds = gdal.Open(vsipath)
+                        a = ds.ReadAsArray(0,0,100,100)
+                        if (a==0).all():
+                            outputBounds = (maxx - 109800, miny + 109800, maxx, miny)
+                        else:
+                            outputBounds = (minx, maxy, minx + 109800, maxy -109800)
+                        
+                        res = gdal.Translate(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}_ql.tif",
+                                             ds,
+                                             format = "GTiff",
+                                             outputBounds = outputBounds, #ulx, uly, lrx, lry]
+                                             outputSRS = f"EPSG:{epsg_no}",
+                                             creationOptions = "COMPRESS=DEFLATE"
+                                             )
+                        
+                        res.FlushCache()
+                        ds.FlushCache()
+                        ds = res = None
+                        
+                        if os.path.isfile(vsipath):
+                            os.remove(vsipath)                        
+                    
+                except Exception as e:
+                    self.createLog(str(e))
+                
+                        
+            elif self.chc_other["raw"].isChecked():
+                try:
+                    self.downloadImage(prod_url, img_name, download_type = "raw")
+                except Exception as e:
+                    self.createLog(str(e))
+            
+            else:                            
+                try:
+                    self.downloadBands(prod_id, img_name, producttype)
+                    
+                    b8_cons = [self.dlg2.cb_ndvi.isChecked(),
+                               self.dlg2.cb_ndwi.isChecked(),
+                               self.dlg2.cb_ndmi.isChecked(),
+                               self.dlg2.cb_ndbi.isChecked(),
+                               self.dlg2.cb_nbr.isChecked(),
+                               self.dlg2.cb_gndvi.isChecked(),
+                               self.dlg2.cb_bsi.isChecked()
+                               ]
+                    
+                    if any(b8_cons):
+                        if producttype == "S2MSI2A":
+                            b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08_10m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b8_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B08.jp2")[0]
+                           
+                        b8_raster = gdal.Open(b8_path)
+                        b8_band = b8_raster.GetRasterBand(1)
+                        b8_array_ = b8_band.ReadAsArray()
+                        b8_array = np.float32(np.where(b8_array_ == 0, self.min_dtype_int, b8_array_))
+                        buf_ysize, buf_xsize = b8_array.shape
+                       
+                        srs_b8 = b8_raster.GetSpatialRef()
+                        srs_wkt = srs_b8.ExportToWkt()
+                        geotransform = b8_raster.GetGeoTransform()
+                    
+                    
+                    
+                    b3_cons = [self.dlg2.cb_ndwi.isChecked(),
+                               self.dlg2.cb_ndsi.isChecked(),
+                               self.dlg2.cb_gndvi.isChecked()
+                               ]
+                    
+                    if any(b3_cons):
+                        if producttype == "S2MSI2A":
+                            b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03_10m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b3_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B03.jp2")[0]
+                           
+                        b3_raster = gdal.Open(b3_path)
+                        b3_band = b3_raster.GetRasterBand(1)
+                        b3_array_ = b3_band.ReadAsArray()
+                        b3_array = np.float32(np.where(b3_array_ == 0, self.min_dtype_int, b3_array_))
+                    
+                    
+                    b11_cons = [self.dlg2.cb_ndmi.isChecked(),
+                               self.dlg2.cb_ndsi.isChecked(),
+                               self.dlg2.cb_ndbi.isChecked(),
+                               self.dlg2.cb_bsi.isChecked()
+                               ]
+                    if any(b11_cons):
+                        if producttype == "S2MSI2A":
+                            b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11_20m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b11_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B11.jp2")[0]
+                           
+                        b11_raster = gdal.Open(b11_path)
+                        b11_band = b11_raster.GetRasterBand(1)
+                        b11_array_ = b11_band.ReadAsArray(buf_xsize=buf_xsize, buf_ysize=buf_ysize)
+                        b11_array = np.float32(np.where(b11_array_ == 0, self.min_dtype_int, b11_array_))
+                        
+                    
+                    # -----------------------------------------------------------------------------------------
+                    
+                    
+                    if self.dlg2.cb_ndvi.isChecked():
+                        if producttype == "S2MSI2A":
+                            b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
+                            
+                        out_file_path = b8_path.replace("B08","ndvi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "ndvi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt, 
+                                         geotransform, 
+                                         [b8_array],
+                                         [b4_path])
+                        
+                    if self.dlg2.cb_ndwi.isChecked():
+                        out_file_path = b8_path.replace("B08","ndwi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "ndwi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b3_array, b8_array],
+                                         [])
+                        
+                    if self.dlg2.cb_ndmi.isChecked():
+                        out_file_path = b8_path.replace("B08","ndmi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "ndmi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b8_array, b11_array],
+                                         [])
+                        
+                    if self.dlg2.cb_ndsi.isChecked():
+                        out_file_path = b3_path.replace("B03","ndsi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "ndsi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b3_array, b11_array],
+                                         [])
+                        
+                    if self.dlg2.cb_ndbi.isChecked():
+                        out_file_path = b8_path.replace("B08","ndbi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "ndbi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b8_array, b11_array],
+                                         [])
+                        
+                    if self.dlg2.cb_nbr.isChecked():
+                        if producttype == "S2MSI2A":
+                            b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12_20m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b12_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B12.jp2")[0]
+                            
+                        out_file_path = b8_path.replace("B08","nbr").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "nbr",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b8_array],
+                                         [b12_path])
+                        
+                    if self.dlg2.cb_gndvi.isChecked():
+                        out_file_path = b8_path.replace("B08","gndvi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "gndvi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b3_array, b8_array],
+                                         [])
+                        
+                    if self.dlg2.cb_bsi.isChecked():
+                        if producttype == "S2MSI2A":
+                            b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02_10m.jp2")[0]
+                            b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04_10m.jp2")[0]
+                           
+                        elif producttype == "S2MSI1C":
+                            b2_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B02.jp2")[0]
+                            b4_path = glob(fr"{self.dlg.le_outputFolder_2.text()}\{img_name}\*B04.jp2")[0]
+                            
+                        out_file_path = b8_path.replace("B08","bsi").replace("jp2", "tif")
+                        self.createIndex(out_file_path,
+                                         "bsi",
+                                         buf_ysize,
+                                         buf_xsize,
+                                         srs_wkt,
+                                         geotransform,
+                                         [b8_array, b11_array],
+                                         [b2_path, b4_path])
                     
                 
+                except Exception as e:
+                    self.createLog(str(e))
+            
+            self.dlg.pb_download.setValue(int((f_row/len(download_list))*100))
+            self.dlg.processEvents()
+            
         if self.dlg2.cb_merge.isChecked():
             try:
-                for img_name in img_name_list:
+                message = "Merging Images..."
+                self.createLog(message)
                     
-                    message = "Merging Images..."
-                    self.createLog(message)
-                        
-                    out_folder_path_merged = fr"{self.dlg.le_outputFolder_2.text()}\merged_vrt"
+                out_folder_path_merged = fr"{self.dlg.le_outputFolder_2.text()}\merged_vrt"
+                
+                flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
+                flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
+                flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
+                
+                img_dict = defaultdict(list)
+    
+                for p in flist_for_vrt:
+                    pr_id, name = p.split("\\")[-2:]
+                    pr_type = pr_id.split("_")[1]    
+                    name = os.path.split(p)[-1]
+                    name_splitted = name.split("_", maxsplit=2)
                     
-                    flist_for_vrt_tif = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.tif")
-                    flist_for_vrt_jp2 = glob(fr"{self.dlg.le_outputFolder_2.text()}\*\*.jp2")
-                    flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
+                    zone = "z" + name_splitted[0][1:3]
+                    dt = name_splitted[1].split("T")[0]
+                    band = name_splitted[-1].split(".")[0]
+                    img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p) 
                     
-                    img_dict = defaultdict(list)
-        
-                    for p in flist_for_vrt:
-                        pr_id, name = p.split("\\")[-2:]
-                        pr_type = pr_id.split("_")[1]    
-                        name = os.path.split(p)[-1]
-                        name_splitted = name.split("_", maxsplit=2)
-                        
-                        zone = "z" + name_splitted[0][1:3]
-                        dt = name_splitted[1].split("T")[0]
-                        band = name_splitted[-1].split(".")[0]
-                        img_dict[f"{zone}_{dt}_{pr_type}_{band}"].append(p) 
-                        
-                    for name, path_list in img_dict.items():
-                        zn, dt, pr_type = name.split("_")[:3]                 
-                        out_folder_path = fr"{out_folder_path_merged}\{dt}\{zn}\{pr_type}"
-                        
-                        if not os.path.isdir(out_folder_path):
-                            os.makedirs(out_folder_path)            
-                        
-                        my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list)
-                        my_vrt.FlushCache()
-                        my_vrt = None
-                        del my_vrt
+                for name, path_list in img_dict.items():
+                    zn, dt, pr_type = name.split("_")[:3]                 
+                    out_folder_path = fr"{out_folder_path_merged}\{dt}\{zn}\{pr_type}"
                     
-                    self.createLog("Images Merged by Date as VRT.")
+                    if not os.path.isdir(out_folder_path):
+                        os.makedirs(out_folder_path)            
+                    
+                    my_vrt = gdal.BuildVRT(fr"{out_folder_path}\{name}.vrt", path_list)
+                    my_vrt.FlushCache()
+                    del my_vrt
+                
+                self.createLog("Images Merged by Date as VRT.")
             
             except Exception as e:
                 self.createLog(str(e))
             
-            self.dlg.btn_execute_2.setText("Download Images")
-            self.dlg.processEvents() 
+        self.dlg.btn_execute_2.setText("Download Images")
+        self.dlg.processEvents() 
             
         QMessageBox.information(None, "Created", """Images Downloaded.""")
         
@@ -1346,7 +1439,7 @@ class DownloadSentinel:
         raw_ql = [self.bands_map[cb_name] for cb_name, cb in self.chc_other.items() if cb.isChecked()]
         bands = [self.bands_map[cb_name] for cb_name, cb in self.chc_bands.items() if ((cb_name != "all") and(cb.isChecked()))]
         indices = [cb_name for cb_name, cb in self.chc_indices.items() if cb.isChecked()]
-        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if cb.isChecked()]
+        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if (cb.isChecked() and self.bands_map.get(cb_name) != None)]
         
         
         if raw_ql:
@@ -1355,15 +1448,20 @@ class DownloadSentinel:
             if bands:
                 if indices:
                     txt = "Bands : " + ", ".join(bands) + "\n\n"
-                    txt += "Indices : " + ", ".join(indices)
+                    if self.dlg2.cb_multiply.isChecked():
+                        txt += "Indices (Integer) : " + ", ".join(indices)
+                    else:
+                        txt += "Indices (Float) : " + ", ".join(indices)
                 else:
                     txt = "Bands : " + ", ".join(bands)
                     
                 if merge:
                     txt += "\n\nMerge Options : " + ", ".join(merge)
+                
+                txt += "\n\nCompression for Indices : DEFLATE" if self.dlg2.rb_deflate.isChecked() else "\n\nCompression for Indices : LZW" if self.dlg2.rb_lzw.isChecked() else "\n\nCompression for Indices : None"
+                
             else:
-                txt = ""
-               
+                txt = ""               
         
         self.dlg.pe_summary.clear()
         self.dlg.pe_summary.appendPlainText(txt)
@@ -1372,8 +1470,7 @@ class DownloadSentinel:
         raw_ql = [self.bands_map[cb_name] for cb_name, cb in self.chc_other.items() if cb.isChecked()]
         bands = [self.bands_map[cb_name] for cb_name, cb in self.chc_bands.items() if ((cb_name != "all") and(cb.isChecked()))]
         indices = [cb_name for cb_name, cb in self.chc_indices.items() if cb.isChecked()]
-        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if cb.isChecked()]
-        
+        merge = [self.bands_map[cb_name] for cb_name, cb in self.chc_clip_merge.items() if (cb.isChecked() and self.bands_map.get(cb_name) != None)]
         
         if raw_ql:
             txt = "Image : " + ", ".join(raw_ql)
@@ -1381,15 +1478,19 @@ class DownloadSentinel:
             if bands:
                 if indices:
                     txt = "Bands : " + ", ".join(bands) + "\n\n"
-                    txt += "Indices : " + ", ".join(indices)
+                    if self.dlg2.cb_multiply.isChecked():
+                        txt += "Indices (Integer) : " + ", ".join(indices)
+                    else:
+                        txt += "Indices (Float) : " + ", ".join(indices)
                 else:
                     txt = "Bands : " + ", ".join(bands)
                     
                 if merge:
                     txt += "\n\nMerge Options : " + ", ".join(merge)
+                
+                txt += "\n\nCompression for Indices : DEFLATE" if self.dlg2.rb_deflate.isChecked() else "\n\nCompression for Indices : LZW" if self.dlg2.rb_lzw.isChecked() else "\n\nCompression for Indices : None"
             else:
-                txt = ""
-               
+                txt = ""               
         
         self.dlg.pe_summary.clear()
         self.dlg.pe_summary.appendPlainText(txt)
@@ -1540,6 +1641,9 @@ class DownloadSentinel:
             self.folderCheck2 = False
             self.loginCheck2 = False
             
+            self.dlg.pb_download.setVisible(False)
+            self.dlg.pe_log.resize(381, 504)
+            
             self.bear = None
             
             self.pixmap_hide = QPixmap(':/plugins/sentinel_downloader/show.png')
@@ -1615,8 +1719,11 @@ class DownloadSentinel:
             }
             
             self.chc_clip_merge = {
-                    "merge" : self.dlg2.cb_merge,
-                    "clip" : self.dlg2.cb_clip
+                    "merge" : self.dlg2.cb_merge,                    
+                    "deflate" : self.dlg2.rb_deflate,
+                    "lzw" : self.dlg2.rb_lzw,
+                    "none" : self.dlg2.rb_nocomp,
+                    "multiply" : self.dlg2.cb_multiply
             }
             
             
@@ -1636,12 +1743,10 @@ class DownloadSentinel:
                     "b12" : "B12",
                     "btci" : "TCI",
                     "bscl" : "SCL",
-                    "ql":"Quicklook Image (.jpg)",
+                    "ql":"Quicklook Image",
                     "raw":"Raw Image (.zip)",
-                    "merge" : "Merge as VRT",
-                    "clip" : "Clip by Extent as VRT"
-            }
-            
+                    "merge" : "Merge as VRT"
+            }            
             
             self.dlg.lbl_message_2.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid extent value! </span></p></body></html>')
             self.dlg.lbl_message_3.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid folder path! </span></p></body></html>')
@@ -1693,5 +1798,7 @@ class DownloadSentinel:
             
             self.dlg.cb_layers.currentTextChanged.connect(self.checkLayer)
             self.dlg.cb_feat_bounds.clicked.connect(self.resetExtent)
+            
+            self.dlg.tabWidget.currentChanged.connect(self.tabChange)
             
         self.dlg.show()
