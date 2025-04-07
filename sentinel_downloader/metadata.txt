@@ -6,7 +6,7 @@
 name=Sentinel 2 Image Downloader
 qgisMinimumVersion=3.0
 description=This plugin allows users to download Sentinel-2 images.	
-version=2.1
+version=2.2
 author=Murat Çalışkan
 email=caliskan.murat.20@gmail.com
 
