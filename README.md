@@ -2,7 +2,7 @@
 
 With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, TCI, SCL_) from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/). The process consists of two steps : "_Download Footprints_" and "_Download Images_".
 
-**In some version of QGIS (e.g. QGIS 3.40.5) some problem may occur because of numpy verison. Downgrading numpy version can fix it. (open osgeo shell and type "pip install --upgrade numpy==1.26.4")**
+**P.S.** In some version of QGIS (e.g. QGIS 3.40.5) some problem may occur because of numpy verison. Downgrading numpy version can fix it. (open osgeo shell and type *_"pip install --upgrade numpy==1.26.4"_*)
 
 <br/><br/>
 
