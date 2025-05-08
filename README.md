@@ -97,7 +97,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/><br/>
 
-### 2-) Select Images
+### 3-) Select Images
 
 <img width="800" src="./images/image5.png">
 
@@ -105,25 +105,23 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/><br/>
 
-<br/>
-
 The size of quicklook images are much smaller compared to the original Sentinel-2 images. Therefore, downloading them is much faster compared to original ones and can be used to determine which original images are desired to be downloaded.
 
 <br/>
 
-To use this section,
-1-) The image footprints are downloaded using the "Download Footprints" section,
-2-) Using the GPKG file(s)(created using Download Footprints section) the quicklook files are downloaded (using "Download Images" section)
-3-) 
-	- The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project
-	- In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
-	- Original GPKG file is selected using ... button,
-	- RUN
-or
-	- The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. OPTIONAL
-	- In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),
-	- Original GPKG file is selected using ... button,
-	- RUN
+To use this section;<br/>
+1-) The image footprints are downloaded using the "Download Footprints" section,<br/>
+2-) Using the GPKG file(s)(created using Download Footprints section) the quicklook files are downloaded (using "Download Images" section)<br/>
+3-) <br/>
+	- The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project<br/>
+	- In the "Select Images" section; "Get Layers" button is clicked (images will be listed),<br/>
+	- Original GPKG file is selected using ... button,<br/>
+	- RUN<br/>
+or<br/>
+	- The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. OPTIONAL<br/>
+	- In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),<br/>
+	- Original GPKG file is selected using ... button,<br/>
+	- RUN<br/><br/>
 	
 After this process a GPKG file will be created with the suffix of "_clean". This file can be used as footprint file to download desired images (using "Download Images" section).
 
