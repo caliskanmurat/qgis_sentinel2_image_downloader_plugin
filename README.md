@@ -103,15 +103,15 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <i>Select Images</i> section is optional. In this section, the images to be downloaded can be selected using quicklook images.
 
-<br/><br/>
+<br/>
 
 The size of quicklook images are much smaller compared to the original Sentinel-2 images. Therefore, downloading them is much faster compared to original ones and can be used to determine which original images are desired to be downloaded.
 
 <br/>
 
-<ins>To use this section</ins>;<br/>
+<ins>To use this section</ins>;<br/><br/>
 **1-)** The image footprints are downloaded using the "Download Footprints" section,<br/>
-**2-)** Using the GPKG file(s)(created using Download Footprints section) the quicklook files are downloaded (using "Download Images" section)<br/>
+**2-)** Using the GPKG file(s) (created using _Download Footprints_ section) the quicklook files are downloaded (using "_Download Images_" section)<br/>
 **3-)** <br/>
 - The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project,
 - In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
@@ -125,6 +125,6 @@ or<br/><br/>
 - Original GPKG file is selected using <img width="24" src="./images/cred_btn.png"> button,
 - RUN<br/><br/>
 	
-After this process a GPKG file will be created with the suffix of "_clean". This file can be used as footprint file to download desired images (using "Download Images" section).
+After this process a GPKG file will be created with the suffix of "__clean_". This file can be used as footprint file to download desired images (using "_Download Images_" section).
 
 <br/>
