@@ -43,8 +43,8 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Username and Password:</b> Username and Password are provided here. Username and password can be saved by clicking <img width="24" src="./images/cred_btn.png"> 
-<img width="300" src="./images/image4.png">
+<b>Username and Password:</b> Username and Password are provided here. Username and password can be saved by clicking <img width="24" src="./images/cred_btn.png"> button.
+<b><img width="300" src="./images/image4.png">
 <br/>
 
 <b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
