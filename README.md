@@ -94,3 +94,14 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <b>Compression:</b> Compression method for saving indices can be selected here.
 
 <br/>
+
+<br/><br/>
+
+### 2-) Select Images
+
+<img width="800" src="./images/image5.png">
+<i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG files are downloaded.(<i>Copernicus Data Space account is required.</i>)
+
+<br/><br/>
+
+<br/>
