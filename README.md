@@ -125,6 +125,6 @@ or<br/><br/>
 - Original GPKG file is selected using <img width="24" src="./images/cred_btn.png"> button,
 - RUN<br/><br/>
 	
-After this process a GPKG file will be created with the suffix of "__clean_". This file can be used as footprint file to download desired images (using "_Download Images_" section).
+After this process a GPKG file will be created with the suffix of "__clean_". This file can be used as footprint file to download desired images (in "_Download Images_" section).
 
 <br/>
