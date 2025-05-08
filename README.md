@@ -43,7 +43,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b>Username and Password:</b> Username and Password are provided here. Username and password can be saved by clicking <img width="24" src="./images/cred_btn.png"> button.
+<b>Username and Password:</b> Username and Password are provided here. Username and password can be saved by clicking <img width="24" src="./images/cred_btn.png"> button.<br/>
 <b><img width="300" src="./images/image4.png">
 <br/>
 
