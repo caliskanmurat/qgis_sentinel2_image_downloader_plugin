@@ -112,8 +112,8 @@ The size of quicklook images are much smaller compared to the original Sentinel-
 <br/>
 
 <ins>To use this section</ins>;<br/><br/>
-**1-)** The image footprints are downloaded using the "Download Footprints" section,<br/>
-**2-)** Using the GPKG file(s) (created using _Download Footprints_ section) the quicklook files are downloaded (using "_Download Images_" section)<br/>
+**1-)** The image footprints are downloaded using the "_Download Footprints_" section (in _GPKG_ format),<br/>
+**2-)** Using the GPKG file(s), the quicklook images are downloaded (using "_Download Images_" section)<br/>
 **3-)** <br/>
 - The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project,
 - In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
