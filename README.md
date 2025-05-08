@@ -116,14 +116,14 @@ The size of quicklook images are much smaller compared to the original Sentinel-
 **2-)** Using the GPKG file(s), the quicklook images are downloaded (using "_Download Images_" section)<br/>
 **3-)** <br/>
 - The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project,
-- In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
+- In the "_Select Images_" section; "_Get Layers_" button is clicked (images will be listed),
 - Original GPKG file is selected using <img width="24" src="./images/cred_btn.png"> button,
 - RUN<br/><br/>
 
 **_or_** <br/><br/>
 
 - The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. **(OPTIONAL)**
-- In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),
+- In the "_Select Images_" section; "_Browse_" button is clicked and images that are intended to be downloaded are selected (images will be listed),
 - Original GPKG file is selected using <img width="24" src="./images/cred_btn.png"> button,
 - RUN<br/><br/>
 	
