@@ -1,6 +1,6 @@
 # QGIS Sentinel-2 Image Downloader Plugin
 
-With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, TCI, SCL_) from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/). The process consists of two steps : "_Download Footprints_" and "_Download Images_".
+With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B10, B11, B12, TCI, SCL_) from the **_Copernicus Data Space Platform_** (https://dataspace.copernicus.eu/). The process consists of three steps : "_Download Footprints_", "_Download Images_" and "_Select Images_".
 
 * In some version of QGIS (e.g. QGIS 3.40.5) some problem may occur because of numpy verison. Downgrading numpy version can fix it. (open osgeo shell and type **_"pip install --upgrade numpy==1.26.4"_**)
 
@@ -107,10 +107,25 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b> Quicklook images are 
+<b> The size of quicklook images are much smaller compared to the original Sentinel-2 images. Therefore, downloading them is much faster compared to original ones and can be used to determine which original images are desired to be downloaded. In this section
+
 
 <br/>
 
-<b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
+To use this section,
+1-) The image footprints are downloaded using the "Download Footprints" section,
+2-) Using the GPKG file(s)(created using Download Footprints section) the quicklook files are downloaded (using "Download Images" section)
+3-) 
+	- The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project
+	- In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
+	- Original GPKG file is selected using ... button,
+	- RUN
+or
+	- The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. OPTIONAL
+	- In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),
+	- Original GPKG file is selected using ... button,
+	- RUN
+	
+After this process a GPKG file will be created with the suffix of "_clean". This file can be used as footprint file to download desired images (using "Download Images" section).
 
 <br/>
