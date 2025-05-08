@@ -109,7 +109,7 @@ The size of quicklook images are much smaller compared to the original Sentinel-
 
 <br/>
 
-To use this section;<br/>
+<ins>To use this section</ins>;<br/>
 **1-)** The image footprints are downloaded using the "Download Footprints" section,<br/>
 **2-)** Using the GPKG file(s)(created using Download Footprints section) the quicklook files are downloaded (using "Download Images" section)<br/>
 **3-)** <br/>
