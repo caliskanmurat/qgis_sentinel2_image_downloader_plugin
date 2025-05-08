@@ -34,15 +34,13 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 FORM_CLASS2, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'index_config.ui'))
 
+FORM_CLASS3, _ = uic.loadUiType(os.path.join(
+    os.path.dirname(__file__), 'credential_configs.ui'))
+
 class DownloadSentinelDialog(QtWidgets.QDialog, QtWidgets.QApplication, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(DownloadSentinelDialog, self).__init__(parent)
-        # Set up the user interface from Designer through FORM_CLASS.
-        # After self.setupUi() you can access any designer object by doing
-        # self.<objectname>, and you can use autoconnect slots - see
-        # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
-        # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
 
 
@@ -50,9 +48,11 @@ class IndexWindow(QtWidgets.QDialog, QtWidgets.QApplication, FORM_CLASS2):
     def __init__(self, parent=None):
         """Constructor."""
         super(IndexWindow, self).__init__(parent)
-        # Set up the user interface from Designer through FORM_CLASS2.
-        # After self.setupUi() you can access any designer object by doing
-        # self.<objectname>, and you can use autoconnect slots - see
-        # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
-        # #widgets-and-dialogs-with-auto-connect
+        self.setupUi(self)
+
+
+class CredsWindow(QtWidgets.QDialog, QtWidgets.QApplication, FORM_CLASS3):
+    def __init__(self, parent=None):
+        """Constructor."""
+        super(CredsWindow, self).__init__(parent)
         self.setupUi(self)

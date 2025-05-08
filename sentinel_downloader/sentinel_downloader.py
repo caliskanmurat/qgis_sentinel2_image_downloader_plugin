@@ -29,7 +29,7 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QLineEdit
 from .resources import *
 
 # Import the code for the dialog
-from .sentinel_downloader_dialog import DownloadSentinelDialog, IndexWindow
+from .sentinel_downloader_dialog import DownloadSentinelDialog, IndexWindow, CredsWindow
 
 from .DrawRect import RectangleMapTool
 
@@ -47,6 +47,7 @@ from shapely.geometry import shape
 import pandas as pd
 from collections import defaultdict
 import sys
+from ast import literal_eval
 
 class DownloadSentinel:
     """QGIS Plugin Implementation."""
@@ -197,10 +198,33 @@ class DownloadSentinel:
                 action)
             self.iface.removeToolBarIcon(action)
     
+    def selectQlFile(self):
+        sender = self.dlg.sender()
+        name = sender.objectName()
+        
+        if name == "btn_browse_ql":
+            self.dlg.lw_input_ql.clear()
+            filePath, _filter = QFileDialog.getOpenFileNames(self.dlg, "Select quicklook File(s)","", 'TIF(*.tif *.TIF)')
+            self.dlg.lw_input_ql.addItems(filePath)
+        
+        elif name == "btn_browse_ql_2":
+            self.dlg.lw_input_ql.clear()
+            layers = [v.source() for v in QgsProject.instance().mapLayers().values() if v.name().endswith("ql")]
+            self.dlg.lw_input_ql.addItems(layers)        
+
     def selectInputFile(self):
-        self.dlg.le_inputfile.setText("")
-        filePath, _filter = QFileDialog.getOpenFileNames(self.dlg, "Select footprint File(s)","", 'GPKG(*.gpkg *.GPKG)')
-        self.dlg.le_inputfile.setText(";".join(filePath))
+        sender = self.dlg.sender()
+        name = sender.objectName()
+        
+        if name == "btn_browse_3":
+            self.dlg.le_inputfile.setText("")
+            filePath, _filter = QFileDialog.getOpenFileNames(self.dlg, "Select footprint File(s)","", 'GPKG(*.gpkg *.GPKG)')
+            self.dlg.le_inputfile.setText(";".join(filePath))
+            
+        elif name == "btn_browse_4":
+            self.dlg.le_inputfile_2.setText("")
+            filePath, _filter = QFileDialog.getOpenFileNames(self.dlg, "Select footprint File(s)","", 'GPKG(*.gpkg *.GPKG)')
+            self.dlg.le_inputfile_2.setText(";".join(filePath))
 
     def selectOutputFolder(self):
         sender = self.dlg.sender()
@@ -394,7 +418,10 @@ class DownloadSentinel:
         
     def inputFileCheck(self):
         file_paths = self.dlg.le_inputfile.text().split(";")
-        res = all([ogr.Open(p) for p in file_paths])
+        try:
+            res = all([ogr.Open(p) for p in file_paths])
+        except:
+            res = None
         
         if res:
             self.fileCheck2 = True
@@ -411,8 +438,59 @@ class DownloadSentinel:
     
     def hidePassword(self, *arg, **kwargs):
         self.dlg.lbl_img.setPixmap(self.pixmap_show)   
-        self.dlg.le_password.setEchoMode(QLineEdit.Password)     
+        self.dlg.le_password.setEchoMode(QLineEdit.Password)
     
+    def showPassword2(self, *arg, **kwargs):
+        self.dlg3.lbl_img.setPixmap(self.pixmap_hide)
+        self.dlg3.le_password.setEchoMode(QLineEdit.Normal)
+    
+    def hidePassword2(self, *arg, **kwargs):
+        self.dlg3.lbl_img.setPixmap(self.pixmap_show)   
+        self.dlg3.le_password.setEchoMode(QLineEdit.Password)
+    
+    def deleteCred(self):
+        if self.dlg3.lw_creds.count() > 0:
+            selected_row = self.dlg3.lw_creds.currentRow()
+            selected_text = self.dlg3.lw_creds.currentItem().text()
+            
+            self.dlg3.lw_creds.takeItem(selected_row)
+            
+            self.creds.pop(selected_text)
+            
+            with open(os.path.join(os.path.dirname(__file__), 'credentials.txt'), "w") as f:
+                f.write(str(self.creds))
+            
+            self.dlg.cb_username.clear()
+            self.dlg.cb_username.addItems(sorted(self.creds.keys()))
+            self.dlg.cb_username.setCurrentText("")
+                
+    def addCred(self):
+        usr = self.dlg3.le_username.text()
+        pr = self.dlg3.le_password.text()
+        
+        if (usr == "") or (pr == ""):
+            pass
+        else:
+            res = QMessageBox.question(None, "Message", """Username and Password will be stored as plain text. Are you sure?""")
+            if res == QMessageBox.Yes:
+                if self.creds.get(usr) is None:
+                    self.creds[usr] = pr
+                    self.dlg3.lw_creds.addItem(usr)
+                
+                    with open(os.path.join(os.path.dirname(__file__), 'credentials.txt'), "w") as f:
+                        f.write(str(self.creds))
+                    
+                    self.dlg3.le_username.setText("")
+                    self.dlg3.le_password.setText("")
+                
+                    self.dlg.cb_username.clear()
+                    self.dlg.cb_username.addItems(sorted(self.creds.keys()))
+                    self.dlg.cb_username.setCurrentText("")
+            
+            else:
+                self.dlg3.le_username.setText("")
+                self.dlg3.le_password.setText("")
+            
     def checkExtent(self):
         minx = float(self.dlg.sb_extent_minx.value())
         maxx = float(self.dlg.sb_extent_maxx.value())
@@ -421,7 +499,6 @@ class DownloadSentinel:
         
         controls = [maxx > minx,
                     maxy > miny]
-        
                 
         if all(controls) or self.dlg.cb_feat_bounds.isChecked():
             self.extentCheck = True
@@ -521,8 +598,62 @@ class DownloadSentinel:
         
         del outRaster, outband
     
+    def fillPassword(self):
+        self.dlg.le_password.setText("")
+        
+        usr = self.le_username.text()
+        pss = self.creds.get(usr)
+        
+        if pss:
+            self.dlg.le_password.setText(pss)
+    
+    def cleanFootprints(self):
+        self.dlg.btn_execute_3.setText("RUNNING...")
+        self.dlg.processEvents()
+        
+        ql_count = self.dlg.lw_input_ql.count()
+        file_txt = self.dlg.le_inputfile_2.text()
+        
+        ql_file_list = []
+        for i in range(ql_count):
+            ql_path = self.dlg.lw_input_ql.item(i).text()
+            ql_name = "_".join(os.path.split(ql_path)[-1].split("_")[:-1])
+            
+            ql_file_list.append(ql_name)
+        
+        if len(ql_file_list) > 0:
+            ql_file_query = ", ".join([f"'{i}'" for i in ql_file_list])
+            if file_txt:
+                file_list = file_txt.split(";")
+                for p in file_list:
+                    if (os.path.isfile(p)) and (p.endswith("gpkg")):
+                        new_data_list = []
+                        
+                        data = ogr.Open(p)
+                        layer = data.GetLayer()
+                        layer_defn = layer.GetLayerDefn()
+                        lyr_name = layer.GetName()
+                        
+                        cols = [f"{layer_defn.GetFieldDefn(f).GetName()}" for f in range(layer_defn.GetFieldCount())]
+                        
+                        query = f"SELECT * FROM {lyr_name} WHERE prod_identifier IN ({ql_file_query})"
+                        res = data.ExecuteSQL(query)
+                        
+                        for feat in res:
+                            geom = feat.GetGeometryRef()
+                            wkt = geom.ExportToWkt()
+                            new_data_list.append([*[feat.GetField(c) for c in cols], wkt])
+                
+                        df_new_data = pd.DataFrame(new_data_list, columns=[*cols, "wkt"])
+                        
+                        new_outfile = p.replace(".gpkg", "_clean.gpkg")
+                        self.createGPKG( df_new_data, new_outfile, driver_name = "GPKG")
+        
+        self.dlg.btn_execute_3.setText("RUN")
+        self.dlg.processEvents()
+    
     def checkCredentials(self):
-        self.username = self.dlg.le_username.text()
+        self.username = self.le_username.text()
         self.password = self.dlg.le_password.text()
         
         data = {
@@ -851,44 +982,54 @@ class DownloadSentinel:
                         bands[name.split(".")[0].split("_")[-1]] = [name, uri]
                 
                 else:
-                    results_nodes_url_r10 = resp_json["result"][0]["Nodes"]["uri"]
-                    results_nodes_url_r20 = resp_json["result"][1]["Nodes"]["uri"]
-                    results_nodes_url_r60 = resp_json["result"][2]["Nodes"]["uri"]
+                    resp10_json = resp20_json = resp60_json = None
                     
-                    resp10 = requests.get(results_nodes_url_r10)
-                    resp10_json = resp10.json()
-                    
-                    resp20 = requests.get(results_nodes_url_r20)
-                    resp20_json = resp20.json()
-                    
-                    resp60 = requests.get(results_nodes_url_r60)
-                    resp60_json = resp60.json()
-                    
-                    for band in resp10_json["result"]:
-                        name = band["Name"]
-                        uri_raw = results_img_data_url.replace("download","zipper")
-                        uri  = f"{uri_raw}(R10m)/Nodes({name})/$value"
-                        if ("B02" in name) or ("B03" in name) or ("B04" in name) or ("B08" in name) or ("TCI" in name):
-                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                    for rj in resp_json["result"]:
+                        if "(r10m)" in rj["Nodes"]["uri"].lower():
+                            results_nodes_url_r10 = rj["Nodes"]["uri"]
+                            resp10 = requests.get(results_nodes_url_r10)
+                            resp10_json = resp10.json()
+                            continue
                             
-                    for band in resp20_json["result"]:
-                        name = band["Name"]
-                        uri_raw = results_img_data_url.replace("download","zipper")
-                        uri  = f"{uri_raw}(R20m)/Nodes({name})/$value"
-                        if ("B05" in name) or ("B06" in name) or ("B07" in name) or ("B8A" in name) or ("B11" in name) or ("B12" in name) or ("SCL" in name):
-                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
-                            
-                    for band in resp60_json["result"]:
-                        name = band["Name"]
-                        uri_raw = results_img_data_url.replace("download","zipper")
-                        uri  = f"{uri_raw}(R60m)/Nodes({name})/$value"
-                        if ("B01" in name) or ("B09" in name):
-                            bands[name.split(".")[0].split("_")[-2]] = [name, uri]
-                
-                
+                        elif "(r20m)" in rj["Nodes"]["uri"].lower():
+                            results_nodes_url_r20 = rj["Nodes"]["uri"]
+                            resp20 = requests.get(results_nodes_url_r20)
+                            resp20_json = resp20.json()
+                            continue
+                    
+                        elif "(r60m)" in rj["Nodes"]["uri"].lower():
+                            results_nodes_url_r60 = rj["Nodes"]["uri"]
+                            resp60 = requests.get(results_nodes_url_r60)
+                            resp60_json = resp60.json()
+                    
+                    if resp10_json:
+                        for band in resp10_json["result"]:
+                            name = band["Name"]
+                            uri_raw = results_img_data_url.replace("download","zipper")
+                            uri  = f"{uri_raw}(R10m)/Nodes({name})/$value"
+                            if ("B02" in name) or ("B03" in name) or ("B04" in name) or ("B08" in name) or ("TCI" in name):
+                                bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                    
+                    if resp20_json:      
+                        for band in resp20_json["result"]:
+                            name = band["Name"]
+                            uri_raw = results_img_data_url.replace("download","zipper")
+                            uri  = f"{uri_raw}(R20m)/Nodes({name})/$value"
+                            if ("B05" in name) or ("B06" in name) or ("B07" in name) or ("B8A" in name) or ("B11" in name) or ("B12" in name) or ("SCL" in name):
+                                bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+                   
+                    if resp60_json:
+                        for band in resp60_json["result"]:
+                            name = band["Name"]
+                            uri_raw = results_img_data_url.replace("download","zipper")
+                            uri  = f"{uri_raw}(R60m)/Nodes({name})/$value"
+                            if ("B01" in name) or ("B09" in name):
+                                bands[name.split(".")[0].split("_")[-2]] = [name, uri]
+
                 for cb_name, cb in self.chc_bands.items():
                     if (cb_name != "all") and (cb.isChecked()):
                         b_name = self.bands_map[cb_name]
+                        
                         f_name, b_url = bands.get(b_name, [None,None])
                         if f_name:
                             outpath = os.path.join(f"{self.dlg.le_outputFolder_2.text()}", f"{prod_identifier}", f"{f_name}")
@@ -908,9 +1049,19 @@ class DownloadSentinel:
         self.createLog(message)
                     
 
-    def indexSettings(self):
+    def showIndexSettings(self):        
         self.dlg2.show()
-        # self.dlg.hide()
+        
+    def showCredsSettings(self):
+        self.dlg3.pb_delete_cred.setEnabled(False)
+        self.dlg3.lw_creds.clear()
+        
+        with open(os.path.join(os.path.dirname(__file__), 'credentials.txt')) as f:
+            self.creds = literal_eval(f.read())
+        
+        self.dlg3.lw_creds.addItems(sorted(self.creds.keys()))
+            
+        self.dlg3.show()        
 
     def createIndex(self, out_file_path, index_name, buf_ysize, buf_xsize, srs_wkt, geotransform, base_band_array, band_paths):
         
@@ -1192,7 +1343,11 @@ class DownloadSentinel:
                         else:
                             outputBounds = (minx, maxy, minx + 109800, maxy -109800)
                         
-                        res = gdal.Translate(os.path.join(f"{self.dlg.le_outputFolder_2.text()}", f"{img_name}_ql.tif"),
+                        outdir_path_ql = os.path.join(f"{self.dlg.le_outputFolder_2.text()}", "quicklook")
+                        if not os.path.isdir(outdir_path_ql):
+                            os.makedirs(outdir_path_ql)
+                            
+                        res = gdal.Translate(os.path.join(outdir_path_ql, f"{img_name}_ql.tif"),
                                              ds,
                                              format = "GTiff",
                                              outputBounds = outputBounds, #ulx, uly, lrx, lry]
@@ -1411,6 +1566,7 @@ class DownloadSentinel:
                 out_folder_path_merged = os.path.join(f"{self.dlg.le_outputFolder_2.text()}", "merged_vrt")
                 
                 flist_for_vrt_tif = glob(os.path.join(f"{self.dlg.le_outputFolder_2.text()}", "*", "*.tif"))
+                flist_for_vrt_tif = [tif_p for tif_p in flist_for_vrt_tif if not tif_p.endswith("_ql.tif")]
                 flist_for_vrt_jp2 = glob(os.path.join(f"{self.dlg.le_outputFolder_2.text()}", "*", "*.jp2"))
                 flist_for_vrt = [*flist_for_vrt_tif, *flist_for_vrt_jp2]
                 
@@ -1434,8 +1590,7 @@ class DownloadSentinel:
                         os.makedirs(out_folder_path)            
                     
                     my_vrt = gdal.BuildVRT(os.path.join(f"{out_folder_path}", f"{name}.vrt"), path_list)
-                    my_vrt.FlushCache()
-                    del my_vrt
+                    my_vrt = None
                 
                 self.createLog("Images Merged by Date as VRT.")
             
@@ -1508,9 +1663,13 @@ class DownloadSentinel:
         
         self.dlg.pe_summary.clear()
         self.dlg.pe_summary.appendPlainText(txt)
-    
+        
     def onCloseEvent(self, event):
         self.dlg2.close()
+        self.dlg3.close()
+    
+    def onCloseEvent3(self, event):
+        self.dlg3.close()
     
     def clearAllChecks(self):
         for cb in self.chc_other.values():
@@ -1620,7 +1779,14 @@ class DownloadSentinel:
                     cb.setEnabled(True)
                 for _, cb in self.chc_clip_merge.items():
                     cb.setEnabled(True)
-        
+                
+    def removeQlList(self):
+        if self.dlg.lw_input_ql.count() > 0:
+            selected_items = self.dlg.lw_input_ql.selectedItems()
+            
+            if len(selected_items) > 0:
+                for item in selected_items:
+                    self.dlg.lw_input_ql.takeItem(self.dlg.lw_input_ql.row(item))
     
     def run(self):
         """Run method that performs all the real work"""
@@ -1631,6 +1797,7 @@ class DownloadSentinel:
             # self.first_start = False
             self.dlg = DownloadSentinelDialog()
             self.dlg2 = IndexWindow()
+            self.dlg3 = CredsWindow()
             
             if any([
                 (date.today().day == 18 and date.today().month == 3),
@@ -1643,10 +1810,13 @@ class DownloadSentinel:
                 
                 self.dlg.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
                 self.dlg2.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
+                self.dlg3.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
             
-            self.dlg2.closeEvent = self.onCloseEvent2
+            
             self.dlg.closeEvent = self.onCloseEvent
-
+            self.dlg2.closeEvent = self.onCloseEvent2
+            self.dlg3.closeEvent = self.onCloseEvent3
+            
             
             self.dateCheck = True
             self.extentCheck = False
@@ -1665,6 +1835,7 @@ class DownloadSentinel:
             self.pixmap_show = QPixmap(':/plugins/sentinel_downloader/hide.png')
             
             self.dlg.lbl_img.setPixmap(self.pixmap_show)
+            self.dlg3.lbl_img.setPixmap(self.pixmap_show)
             
             self.dlg2.lbl_url_ndvi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndvi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
             self.dlg2.lbl_url_ndwi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndwi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
@@ -1784,9 +1955,14 @@ class DownloadSentinel:
          
             self.dlg.btn_execute.clicked.connect(self.executeFootprints)
             self.dlg.btn_execute_2.clicked.connect(self.executeDownloadImages)
+            self.dlg.btn_execute_3.clicked.connect(self.cleanFootprints)
             self.dlg.btn_browse.clicked.connect(self.selectOutputFolder)
             self.dlg.btn_browse_2.clicked.connect(self.selectOutputFolder)
             self.dlg.btn_browse_3.clicked.connect(self.selectInputFile)
+            self.dlg.btn_browse_4.clicked.connect(self.selectInputFile)
+            self.dlg.btn_browse_ql.clicked.connect(self.selectQlFile)
+            self.dlg.btn_browse_ql_2.clicked.connect(self.selectQlFile)
+            self.dlg.pb_remove.clicked.connect(self.removeQlList)
             
             self.dlg.dt_startDate.dateChanged.connect(self.checkDates)
             self.dlg.dt_endDate.dateChanged.connect(self.checkDates)
@@ -1804,16 +1980,37 @@ class DownloadSentinel:
             self.dlg.lbl_img.mousePressEvent = self.showPassword
             self.dlg.lbl_img.mouseReleaseEvent = self.hidePassword
             
-            self.dlg.pb_indices.clicked.connect(self.indexSettings)
+            self.dlg3.lbl_img.mousePressEvent = self.showPassword2
+            self.dlg3.lbl_img.mouseReleaseEvent = self.hidePassword2
+            
+            self.dlg.pb_indices.clicked.connect(self.showIndexSettings)
+            
+            self.dlg.pb_creds_setting.clicked.connect(self.showCredsSettings)
             
             self.dlg.btn_clearLogs.clicked.connect(lambda x:self.dlg.pe_log.clear())
             
             self.dlg2.btn_clearAll.clicked.connect(self.clearAllChecks)
             self.dlg2.btn_closeIndex.clicked.connect(self.indicesOk)
-            
+                        
             self.dlg.cb_layers.currentTextChanged.connect(self.checkLayer)
             self.dlg.cb_feat_bounds.clicked.connect(self.resetExtent)
             
             self.dlg.tabWidget.currentChanged.connect(self.tabChange)
+            
+            self.dlg3.lw_creds.itemPressed.connect(lambda x:self.dlg3.pb_delete_cred.setEnabled(True))
+            self.dlg3.pb_delete_cred.clicked.connect(self.deleteCred)
+            self.dlg3.pb_add_cred.clicked.connect(self.addCred)
+            
+            with open(os.path.join(os.path.dirname(__file__), 'credentials.txt')) as f:
+                self.creds = literal_eval(f.read())
+            
+            self.dlg.cb_username.addItems(sorted(self.creds.keys()))
+            
+            self.le_username = QLineEdit()
+            self.le_username.setPlaceholderText("Email")
+            self.dlg.cb_username.setLineEdit(self.le_username)
+            self.dlg.cb_username.setCurrentIndex(-1)
+            
+            self.le_username.textChanged[str].connect(self.fillPassword)
             
         self.dlg.show()
