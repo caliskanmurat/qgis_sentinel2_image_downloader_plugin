@@ -120,7 +120,7 @@ The size of quicklook images are much smaller compared to the original Sentinel-
 - Original GPKG file is selected using <img width="24" src="./images/cred_btn.png"> button,
 - RUN<br/><br/>
 
-or<br/><br/>
+**_or_** <br/><br/>
 
 - The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. **(OPTIONAL)**
 - In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),
