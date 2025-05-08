@@ -44,7 +44,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <br/>
 
 <b>Username and Password:</b> Username and Password are provided here. Username and password can be saved by clicking <img width="24" src="./images/cred_btn.png"> button.<br/>
-<b><img width="300" src="./images/image4.png">
+<img width="300" src="./images/image4.png">
 <br/>
 
 <b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
@@ -100,8 +100,17 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 ### 2-) Select Images
 
 <img width="800" src="./images/image5.png">
-<i>Download Images</i> section is second part of the analysis. In this section, the images in the attribute table of the GKPG files are downloaded.(<i>Copernicus Data Space account is required.</i>)
+
+<i>Select Images</i> section is optional. In this section, the images to be downloaded can be selected using quicklook images.
 
 <br/><br/>
+
+<br/>
+
+<b> Quicklook images are 
+
+<br/>
+
+<b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
 
 <br/>
