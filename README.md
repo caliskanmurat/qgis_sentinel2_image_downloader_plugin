@@ -116,12 +116,14 @@ To use this section;<br/>
 - The downloaded quicklook images are opened in the QGIS environment, and unwanted images are removed from the project,
 - In the "Select Images" section; "Get Layers" button is clicked (images will be listed),
 - Original GPKG file is selected using ... button,
-- RUN<br/>
-or<br/>
-	**-** The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. OPTIONAL<br/>
-	**-** In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),<br/>
-	**-** Original GPKG file is selected using ... button,<br/>
-	**-** RUN<br/><br/>
+- RUN<br/><br/>
+
+or<br/><br/>
+
+- The quicklook images can be opened in any way and the ones that are intended to be downloaded are saved into a new folder. **OPTIONAL**
+- In the "Select Images" section; "Browse" button is clicked and images that are intended to be downloaded are selected (images will be listed),
+- Original GPKG file is selected using ... button,
+- RUN<br/><br/>
 	
 After this process a GPKG file will be created with the suffix of "_clean". This file can be used as footprint file to download desired images (using "Download Images" section).
 
