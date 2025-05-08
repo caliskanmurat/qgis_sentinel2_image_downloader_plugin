@@ -47,6 +47,8 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 <img width="300" src="./images/image4.png">
 <br/>
 
+<br/>
+
 <b>Go to Site for Registration:</b> This is a link to _Copernicus Data Space_ platform for registration.
 
 <br/>
