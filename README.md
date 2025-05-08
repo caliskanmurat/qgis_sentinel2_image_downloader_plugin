@@ -107,8 +107,7 @@ With this plugin, it is possible to download Sentinel-2 images (_B01, B02, B03, 
 
 <br/>
 
-<b> The size of quicklook images are much smaller compared to the original Sentinel-2 images. Therefore, downloading them is much faster compared to original ones and can be used to determine which original images are desired to be downloaded. In this section
-
+The size of quicklook images are much smaller compared to the original Sentinel-2 images. Therefore, downloading them is much faster compared to original ones and can be used to determine which original images are desired to be downloaded.
 
 <br/>
 
